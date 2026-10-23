@@ -2,7 +2,9 @@
 
 An interactive floor plan and seating chart for the YMU office.
 
-**Open it:** download `index.html` and double-click it. It runs in any browser with no install or internet connection needed. (The team version that everyone edits together lives at the shared Claude link.)
+**Live site:** https://kmenendez-source.github.io/YMUOfficeMap/
+
+**Open it offline:** download `index.html` and double-click it. It runs in any browser with no install or internet connection needed. (The team version that everyone edits together lives at the shared Claude link.)
 
 ## What it does
 
