@@ -1,0 +1,1651 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YMU Office Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f5f2ed;--panel:#fff;--ink:#1d2330;--muted:#6b7280;--faint:#9aa1ad;--line:#e7e2d9;--line2:#d9d3c8;
+  --accent:#1f4aa8;--accent-soft:#e8eefb;--open:#1d7a4c;--open-soft:#e4f5ec;--warn:#a14b0b;--danger:#b4232f;
+  --radius:12px;--shadow:0 10px 30px rgba(31,36,48,.14),0 2px 6px rgba(31,36,48,.08);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{display:flex;flex-direction:column;margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none!important}
+.shared .local-only,html:not(.shared) .shared-only{display:none!important}
+.shared #saved{display:none}
+.readonly #btnEdit,.readonly #btnMenu,.readonly #editbar,.readonly [data-act="edit"]{display:none!important}
+.live{display:inline-flex;align-items:center;gap:5px;font-weight:600;color:var(--muted)}
+.live::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.live[data-state="ok"]{color:var(--open)}.live[data-state="ok"]::before{background:var(--open)}
+.live[data-state="warn"]{color:var(--warn)}.live[data-state="warn"]::before{background:var(--warn)}
+.loading{position:absolute;inset:0;z-index:9;display:grid;place-content:center;gap:4px;text-align:center;background:color-mix(in srgb,var(--bg) 88%,transparent);font-size:14px;padding:16px}
+.loading span{color:var(--muted);font-size:13px}
+
+/* ---------- header ---------- */
+.top{height:64px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{width:38px;height:38px;border-radius:10px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px;letter-spacing:.04em;flex:none}
+.brand h1{margin:0;font-size:17px;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+.brand p{margin:0;font-size:12.5px;color:var(--muted);white-space:nowrap}
+#saved{color:var(--open);opacity:0;transition:opacity .4s;margin-left:6px}
+#saved.on{opacity:1}
+.controls{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+.btn{height:36px;padding:0 13px;border-radius:9px;border:1px solid var(--line2);background:#fff;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.btn:hover{border-color:#bdb5a8;background:#fbfaf8}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn.primary:hover{background:#2c3446}
+.btn.icon{width:36px;padding:0;justify-content:center}
+.btn svg{width:16px;height:16px;flex:none}
+.seg{display:inline-flex;background:#efebe4;border-radius:10px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;height:30px;padding:0 12px;border-radius:7px;font-weight:600;font-size:13px;color:var(--muted)}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.toggle{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;user-select:none;white-space:nowrap}
+.toggle input{appearance:none;width:30px;height:18px;border-radius:9px;background:#d8d2c7;position:relative;margin:0;cursor:pointer;transition:background .2s}
+.toggle input::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .2s}
+.toggle input:checked{background:var(--accent)}
+.toggle input:checked::after{transform:translateX(12px)}
+.menuwrap{position:relative}
+.menu{position:absolute;right:0;top:42px;z-index:50;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:6px;min-width:250px}
+.menu button{display:flex;width:100%;align-items:center;gap:10px;border:0;background:none;text-align:left;padding:9px 10px;border-radius:8px;font-size:13.5px}
+.menu button:hover{background:#f4f1ec}
+.menu button small{display:block;color:var(--muted);font-size:11.5px}
+.menu hr{border:0;border-top:1px solid var(--line);margin:5px 4px}
+.menu .danger{color:var(--danger)}
+
+.editbar{display:flex;align-items:center;gap:12px;padding:8px 18px;background:#fff6dd;border-bottom:1px solid #f0dfa8;color:#6b4b05;font-size:13px}
+.editbar b{color:#4d3600}
+.editbar .sp{flex:1}
+
+/* ---------- layout ---------- */
+.top,.editbar{flex:none}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;flex:1;min-height:0}
+.mapwrap{position:relative;overflow:hidden;background:#e7e3dc}
+#map{display:block;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;font-family:Inter,system-ui,sans-serif}
+#map.panning{cursor:grabbing}
+
+/* map layers */
+.desk-shadow{fill:#9b6a3a;opacity:.55}
+.desk-top{fill:url(#wood);stroke:#b98650;stroke-width:1.5}
+.desk-tint{opacity:0;pointer-events:none;transition:opacity .2s}
+.colors .desk-tint{opacity:.55}
+.floor-outline{fill:none;stroke:var(--accent);stroke-width:3;stroke-dasharray:12 8;vector-effect:non-scaling-stroke;pointer-events:none}
+.editing .room-hit.sel{cursor:move}
+.rot-line{stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke}
+.rot-handle{cursor:grab}
+.handle{fill:#fff;stroke:var(--accent);stroke-width:2.5;vector-effect:non-scaling-stroke}
+.handle[data-h=n],.handle[data-h=s]{cursor:ns-resize}.handle[data-h=e],.handle[data-h=w]{cursor:ew-resize}
+.handle[data-h=nw],.handle[data-h=se]{cursor:nwse-resize}.handle[data-h=ne],.handle[data-h=sw]{cursor:nesw-resize}
+.chair.sel .chair-seat{stroke:#2f6bff;stroke-width:5}
+.editing .chair:hover .chair-seat{stroke:#4a78d6}
+.desk-hit{fill:transparent;stroke:transparent;stroke-width:3;cursor:pointer;transition:stroke .12s,fill .12s}
+.seat:hover .desk-hit,.seat.hov .desk-hit{stroke:var(--accent);fill:rgba(31,74,168,.08)}
+.seat.match .desk-hit{stroke:#ffcc33;stroke-width:4}
+.seat.sel .desk-hit{stroke:var(--accent);stroke-width:4;fill:rgba(31,74,168,.14)}
+.editing .seat .desk-hit{cursor:move}
+.editing .seat .desk-hit{stroke-dasharray:6 4;stroke:rgba(31,74,168,.45)}
+.editing .seat.sel .desk-hit{stroke-dasharray:none;stroke:var(--accent)}
+.label-role{font-weight:700;fill:#3a2814}
+.label-name{font-weight:600;fill:#14306e}
+.label-open{font-weight:700;fill:var(--open)}
+.label-none{font-weight:500;fill:#8a6c4b;font-style:italic}
+.chair-seat{fill:#2b3442;stroke:#151b25;stroke-width:3}
+.chair-back{fill:#1c232f}
+.editing #chairs .chair{cursor:move}
+.colorby{position:relative;display:inline-flex;align-items:center;height:36px;border:1px solid var(--line2);border-radius:9px;background:#fff;padding:0 4px 0 10px;gap:4px;color:var(--muted)}
+.colorby svg{width:16px;height:16px;flex:none}
+.colorby select{border:0;background:transparent;font-weight:600;font-size:13px;height:34px;padding:0 4px;cursor:pointer;color:var(--ink);outline:none}
+.legend{position:absolute;left:16px;bottom:16px;z-index:4;max-width:calc(100% - 100px);background:rgba(255,255,255,.96);border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.1);padding:8px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:12px;font-weight:600;color:#3d4452}
+.legend .li{display:inline-flex;align-items:center;gap:6px}
+.legend .sw{width:13px;height:13px;border-radius:4px;display:inline-block}
+.legend .hint{color:var(--faint);font-weight:500}
+.legend input[type=color]{width:20px;height:20px;padding:0;border:1px solid var(--line2);border-radius:5px;background:none;cursor:pointer}
+.has-legend .card{max-height:calc(100% - 110px)}
+.swatches{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.swatches button,.swatches .custom{width:26px;height:26px;border-radius:7px;border:2px solid #fff;box-shadow:0 0 0 1px var(--line2);padding:0;cursor:pointer;overflow:hidden;display:block}
+.swatches button.on{box-shadow:0 0 0 2px var(--ink)}
+.swatches .custom{background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red)}
+.swatches .custom input{opacity:0;width:100%;height:100%;cursor:pointer;padding:0;border:0}
+.swatches .none{background:#f2efea;color:var(--muted);font-size:15px;line-height:1}
+.hint-note{margin:-4px 0 0;font-size:12px;color:var(--muted)}
+.btn:disabled{opacity:.45;cursor:default}
+.room-hit{fill:transparent;stroke:transparent;stroke-width:3;cursor:pointer}
+.room-hit:hover{stroke:rgba(31,74,168,.5);stroke-dasharray:8 6}
+.room-hit.sel{stroke:var(--accent);stroke-dasharray:none;stroke-width:4}
+#dim{fill:rgba(18,22,32,.5);pointer-events:none}
+#ring{fill:none;stroke:var(--accent);stroke-width:3;pointer-events:none;transform-box:fill-box;transform-origin:center;animation:pulse 1.8s ease-out infinite}
+@keyframes pulse{0%{opacity:.95;transform:scale(1)}100%{opacity:0;transform:scale(1.3)}}
+.room-label{font-size:13px;font-weight:700;letter-spacing:.14em;fill:rgba(40,32,24,.55);text-transform:uppercase}
+
+/* map overlays */
+.mapctl{position:absolute;right:16px;bottom:16px;display:flex;flex-direction:column;gap:6px;z-index:5}
+.mapctl .btn{box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.zoomlbl{font-size:11px;text-align:center;color:var(--muted);font-weight:600}
+.banner{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:6;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:10px 12px 10px 16px;display:flex;align-items:center;gap:12px;font-size:13px;max-width:min(620px,calc(100% - 32px))}
+.banner b{display:block}
+.banner span{color:var(--muted)}
+#tip{position:fixed;z-index:60;pointer-events:none;background:var(--ink);color:#fff;border-radius:8px;padding:6px 9px;font-size:12px;line-height:1.35;max-width:240px;box-shadow:0 6px 16px rgba(0,0,0,.2)}
+#tip b{font-weight:650}
+#tip span{color:#c7cdd8}
+
+/* ---------- details card ---------- */
+.card{position:absolute;left:16px;top:16px;width:320px;max-height:calc(100% - 32px);overflow:auto;z-index:8;background:#fff;border-radius:16px;box-shadow:var(--shadow);border:1px solid var(--line)}
+.card-head{display:flex;gap:12px;align-items:center;padding:16px 14px 14px 16px;border-bottom:1px solid var(--line);position:relative}
+.card-head::before{content:"";position:absolute;left:0;top:0;right:0;height:4px;background:var(--c);border-radius:16px 16px 0 0}
+.card-head h3{margin:0;font-size:16.5px;font-weight:700;letter-spacing:-.01em;line-height:1.25}
+.card-head p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.card-head .x{margin-left:auto;align-self:flex-start;border:0;background:#f2efea;width:28px;height:28px;border-radius:8px;font-size:17px;line-height:1;color:var(--muted);flex:none}
+.card-body{padding:14px 16px 16px}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:color-mix(in srgb,var(--c) 13%,#fff);color:color-mix(in srgb,var(--c) 75%,#000)}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c)}
+.pill.ghost{--c:#8a919c}
+.pill.open{--c:#1d7a4c}
+.facts{margin:0;display:grid;gap:8px}
+.facts div{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start;font-size:13.5px}
+.facts svg{width:16px;height:16px;color:var(--faint);margin-top:2px}
+.facts a{color:var(--accent);text-decoration:none;word-break:break-all}
+.facts a:hover{text-decoration:underline}
+.card-actions{display:flex;gap:8px;margin-top:14px}
+.card-actions .btn{flex:1;justify-content:center}
+.empty-note{color:var(--muted);font-size:13px;margin:0}
+.av{width:36px;height:36px;border-radius:50%;background:var(--c);color:#fff;display:grid;place-items:center;font-weight:700;font-size:12.5px;flex:none;letter-spacing:.02em}
+.av.lg{width:46px;height:46px;font-size:15px}
+.av.open{background:var(--open-soft);color:var(--open);border:1.5px dashed var(--open)}
+.av.none{background:#efebe4;color:#8b8478}
+.form{display:grid;gap:10px}
+.form label{display:grid;gap:4px;font-size:11.5px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.form input,.form select,.form textarea{width:100%;border:1px solid var(--line2);border-radius:8px;padding:8px 10px;background:#fff;font-size:13.5px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink)}
+.form textarea{resize:vertical;min-height:54px}
+.form input:focus,.form select:focus,.form textarea:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+.form .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.form .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.form .check{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink);font-weight:500}
+.form .check input{width:auto}
+.form h4{margin:8px 0 -2px;font-size:12px;color:var(--ink);text-transform:uppercase;letter-spacing:.06em}
+.form .btn{justify-content:center}
+.btn.danger{color:var(--danger)}
+.btn.armed,.menu button.armed{background:var(--danger);border-color:var(--danger);color:#fff}
+
+/* ---------- sidebar ---------- */
+.side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.side-top{padding:14px 14px 10px;border-bottom:1px solid var(--line);display:grid;gap:10px}
+.search{position:relative}
+.search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--faint)}
+.search input{width:100%;height:40px;border:1px solid var(--line2);border-radius:10px;padding:0 36px 0 34px;background:#faf8f5;font-size:14px}
+.search input:focus{outline:2px solid var(--accent-soft);border-color:var(--accent);background:#fff}
+.search kbd{position:absolute;right:9px;top:50%;transform:translateY(-50%);font:600 11px Inter,system-ui;color:var(--faint);border:1px solid var(--line2);border-radius:5px;padding:1px 6px;background:#fff}
+.side .seg{width:100%}
+.side .seg button{flex:1}
+.depts{display:flex;flex-wrap:wrap;gap:6px}
+.dchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line2);background:#fff;border-radius:999px;padding:3px 9px 3px 7px;font-size:12px;font-weight:600;color:#3d4452}
+.dchip i{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
+.dchip em{font-style:normal;color:var(--faint);font-weight:600}
+.dchip.on{background:color-mix(in srgb,var(--c) 14%,#fff);border-color:var(--c);color:color-mix(in srgb,var(--c) 70%,#000)}
+.dchip.clear{border-style:dashed;color:var(--muted)}
+.list{flex:1;overflow:auto;padding:6px 8px 14px}
+.grp{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);padding:12px 8px 4px;display:flex;align-items:center;gap:7px}
+.grp i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.row{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;text-align:left;padding:7px 8px;border-radius:10px}
+.row:hover{background:#f5f2ed}
+.row.sel{background:var(--accent-soft)}
+.row .txt{min-width:0;flex:1}
+.row b{display:block;font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row small{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .av{width:32px;height:32px;font-size:11.5px}
+.tag{font-size:11px;font-weight:700;color:var(--open);background:var(--open-soft);padding:2px 7px;border-radius:999px;flex:none}
+.nomatch{color:var(--muted);text-align:center;padding:30px 10px;font-size:13px}
+.side-foot{border-top:1px solid var(--line);padding:10px 14px;font-size:12px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap}
+.side-foot span{display:inline-flex;align-items:center;gap:5px}
+.side-foot i{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+/* ---------- roster dialog ---------- */
+dialog{border:0;border-radius:16px;padding:0;box-shadow:var(--shadow);width:min(1100px,calc(100vw - 32px));max-height:calc(100vh - 48px)}
+dialog::backdrop{background:rgba(20,24,33,.45)}
+.dlg{display:flex;flex-direction:column;max-height:calc(100vh - 48px)}
+.dlg-head{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.dlg-head h2{margin:0;font-size:17px}
+.dlg-head p{margin:0;color:var(--muted);font-size:13px}
+.dlg-head .sp{flex:1}
+.tablewrap{overflow:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{position:sticky;top:0;background:#faf8f5;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:9px 8px;border-bottom:1px solid var(--line);z-index:1}
+td{padding:4px 6px;border-bottom:1px solid #f0ece5}
+td input,td select{width:100%;border:1px solid transparent;border-radius:7px;padding:6px 8px;background:transparent;font-size:13px}
+td input:hover,td select:hover{border-color:var(--line2)}
+td input:focus,td select:focus{border-color:var(--accent);background:#fff;outline:2px solid var(--accent-soft)}
+td.num{color:var(--faint);font-weight:600;width:40px;text-align:center}
+td .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--c);margin-right:4px}
+
+#toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:all .25s;z-index:100;box-shadow:var(--shadow)}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* ---------- responsive ---------- */
+@media (max-width:1100px){.toggle.names{display:none}}
+@media (max-width:960px){
+  .top{height:auto;flex-wrap:wrap;padding:10px 16px}
+  .controls{flex-wrap:wrap}
+  html,body{height:auto;min-height:100%}
+  .layout{grid-template-columns:1fr;flex:none}
+  /* Size the map to the floor plan's shape so it fills the width instead of floating in empty space. */
+  .mapwrap{height:auto}
+  #map{height:auto;aspect-ratio:var(--floor-ar,1.68);min-height:240px}
+  .mapctl{top:8px;bottom:auto;right:8px;flex-direction:row}
+  .legend{position:static;max-width:none;margin:0 8px 8px;box-shadow:none}
+  .side{border-left:0;border-top:1px solid var(--line)}
+  .list{max-height:none}
+  .card,.has-legend .card{position:fixed;left:8px;right:8px;top:auto;bottom:8px;width:auto;max-height:60vh;z-index:40}
+  .toggle.names{display:inline-flex}
+  .editbar{flex-wrap:wrap}
+}
+
+/* ---------- print ---------- */
+@media print{
+  @page{size:landscape;margin:10mm}
+  body{background:#fff}
+  .controls,.editbar,.mapctl,.card,.banner,#tip,#toast,.side-top .search,.side-top .seg,.dchip.clear{display:none!important}
+  .top{height:auto;padding:0 0 8px;border:0}
+  .layout{display:block;flex:none}
+  .mapwrap{height:auto;background:#fff}
+  #map{height:auto;aspect-ratio:var(--floor-ar,1.68)}
+  .side{border:0;break-before:page}
+  .list{overflow:visible;columns:3;column-gap:24px}
+  .row{break-inside:avoid;padding:3px 0}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="logo">YMU</div>
+    <div><h1>Office Map &amp; Seating Chart</h1><p><span id="stats"></span><span id="saved">· Saved</span> <span id="live" class="live" hidden></span></p></div>
+  </div>
+  <div class="controls">
+    <label class="colorby" title="Colour-code the desks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.3" fill="currentColor"/><circle cx="12" cy="7.5" r="1.3" fill="currentColor"/><circle cx="15.5" cy="10" r="1.3" fill="currentColor"/></svg>
+      <select id="optColorBy" aria-label="Colour desks"><option value="off">No colours</option><option value="team">Colour by team</option><option value="status">Colour by status</option><option value="custom">Custom colours</option></select></label>
+    <label class="toggle names"><input type="checkbox" id="optNames" checked> Names</label>
+    <button class="btn" id="btnRoster" title="Edit everyone in a table">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Roster</button>
+    <button class="btn primary" id="btnEdit">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg><span>Edit</span></button>
+    <div class="menuwrap">
+      <button class="btn icon" id="btnMenu" aria-label="More options"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+      <div class="menu" id="menu" hidden>
+        <button class="local-only" data-menu="html"><span>Download shareable copy<small>One HTML file with everyone's seats baked in</small></span></button>
+        <button class="local-only" data-menu="print"><span>Print seating chart</span></button>
+        <hr class="local-only">
+        <button class="local-only" data-menu="csv-out"><span>Export roster (CSV)<small>Open in Excel or Google Sheets</small></span></button>
+        <button data-menu="csv-in"><span>Import roster (CSV)<small>Matches rows by desk #<span class="shared-only"> · updates everyone's map</span></small></span></button>
+        <hr>
+        <button class="local-only" data-menu="json-out"><span>Back up layout (JSON)</span></button>
+        <button data-menu="json-in"><span>Restore layout (JSON)<small class="shared-only">Replaces the map for everyone</small></span></button>
+        <hr class="local-only">
+        <button data-menu="reset" class="danger local-only"><span>Reset to original layout</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+<div class="editbar" id="editbar" hidden>
+  <b>Editing</b><span><span class="shared-only">Changes save for everyone on your team as you make them. </span>Click a desk to fill in who sits there. Drag desks and chairs to move them. Click a room once to select it, then drag to move it. White handles resize, the round one rotates a desk. Everything saves automatically.</span>
+  <span class="sp"></span>
+  <button class="btn" id="btnAddRoom"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 12h6"/></svg>Add room</button>
+  <button class="btn" id="btnFloor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 15v5h-5M4 4l7 7M20 20l-7-7"/></svg>Floor size</button>
+  <button class="btn" id="btnAddTable"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="5" y="8" width="14" height="8" rx="2"/><path d="M8 5h2M14 5h2M8 19h2M14 19h2"/></svg>Add table</button>
+  <button class="btn" id="btnAddChair"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="5" y="4" width="14" height="12" rx="3"/><path d="M6 19h12"/></svg>Add chair</button>
+  <button class="btn" id="btnAdd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add desk</button>
+  <button class="btn primary" id="btnDone">Done</button>
+</div>
+<main class="layout">
+  <section class="mapwrap" id="mapwrap">
+    <svg id="map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2100 1250" role="img" aria-label="YMU office floor plan">
+      <defs>
+        <linearGradient id="wood" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#efca95"/><stop offset=".55" stop-color="#e2b277"/><stop offset="1" stop-color="#d6a163"/></linearGradient>
+        <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M28 0H0V28" fill="none" stroke="#000" stroke-opacity=".035"/></pattern>
+        <pattern id="rugdots" width="12" height="12" patternUnits="userSpaceOnUse"><circle cx="6" cy="6" r="1.4" fill="#fff" fill-opacity=".14"/></pattern>
+      </defs>
+      <g id="plan"></g>
+      <g id="roomhits"></g>
+      <g id="chairs"></g>
+      <g id="desks"></g>
+      <path id="dim" fill-rule="evenodd" d=""/>
+      <g id="ringg"><rect id="ring" x="0" y="0" width="0" height="0" rx="8" visibility="hidden"/></g>
+      <g id="handles"></g>
+    </svg>
+    <div class="legend" id="legend" hidden></div>
+    <div class="banner" id="banner" hidden>
+      <div><b>No names on the chart yet</b><span>Open <u>Roster</u> to type everyone in at once, or click <u>Edit</u> and then a desk.</span></div>
+      <button class="btn" id="bannerRoster">Open roster</button>
+      <button class="btn icon" id="bannerClose" aria-label="Dismiss">×</button>
+    </div>
+    <div class="loading" id="loading" hidden><b>Loading the team's office layout…</b><span>Desks and names appear in a moment.</span></div>
+    <article class="card" id="card" hidden></article>
+    <div class="mapctl">
+      <button class="btn icon" id="zIn" aria-label="Zoom in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button class="btn icon" id="zOut" aria-label="Zoom out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+      <button class="btn icon" id="zFit" aria-label="Fit whole office"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    </div>
+  </section>
+  <aside class="side">
+    <div class="side-top">
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Find a person, role or team" autocomplete="off">
+        <kbd>/</kbd>
+      </div>
+      <div class="seg" id="listSeg"><button data-list="all" class="on">Everyone</button><button data-list="people">People</button><button data-list="open">Open seats</button></div>
+      <div class="depts" id="depts"></div>
+    </div>
+    <div class="list" id="list"></div>
+    <div class="side-foot" id="foot"></div>
+  </aside>
+</main>
+
+<dialog id="roster">
+  <div class="dlg">
+    <div class="dlg-head">
+      <div><h2>Roster</h2><p>Type straight into the table. Changes save as you go and show on the map.</p></div>
+      <span class="sp"></span>
+      <button class="btn" data-close>Done</button>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>#</th><th>Desk / role</th><th>Name</th><th>Team</th><th>Email</th><th>Phone / ext</th><th>Desk type</th><th></th></tr></thead>
+        <tbody id="rosterBody"></tbody>
+      </table>
+    </div>
+  </div>
+</dialog>
+<datalist id="deptList"></datalist>
+<input type="file" id="fileIn" hidden>
+<div id="tip" hidden></div>
+<div id="toast"></div>
+
+<script id="seed" type="application/json">__SEED__</script>
+<script>
+(() => {
+'use strict';
+// Snapshot the untouched page so "Download shareable copy" can re-emit it with new data.
+const PRISTINE = '<!doctype html>\n' + document.documentElement.outerHTML;
+const SHARED = __SHARED__;  // true in the published (shared link) build
+if (SHARED) document.documentElement.classList.add('shared');
+const SEED = JSON.parse(document.getElementById('seed').textContent);
+const STORE = 'ymu_office_map_v2', PREFS = 'ymu_office_map_prefs', OLD_STORE = 'ymu_free_layout_v1';
+const NS = 'http://www.w3.org/2000/svg';
+let W = 2100, H = 1250;  // floor size; follows state.floor
+const DEPTS = {
+  'Leadership': '#5b4bc4', 'Development': '#2e8b62', 'Finance': '#b7891f', 'Operations': '#2f6fc0',
+  'Shows': '#c2413b', 'Programs': '#178a9c', 'Arts Access': '#b23f86', 'Marketing': '#e0702a', 'Shared': '#7b8494'
+};
+const TYPES = {desk: 'Assigned desk', hot: 'Hot desk', vacant: 'Open seat', table: 'Meeting table'};
+const PERSON_FIELDS = ['name', 'email', 'phone', 'notes'];
+
+const $ = s => document.querySelector(s);
+const svg = $('#map');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+function el(tag, attrs, parent) {
+  const n = document.createElementNS(NS, tag);
+  for (const k in attrs) if (attrs[k] != null) n.setAttribute(k, attrs[k]);
+  if (parent) parent.append(n);
+  return n;
+}
+
+/* ---------------- state ---------------- */
+let prefs = {colorBy: null, names: true, banner: true};
+try { Object.assign(prefs, JSON.parse(localStorage.getItem(PREFS)) || {}); } catch (e) {}
+if (!prefs.colorBy) prefs.colorBy = prefs.colors ? 'team' : 'off';
+const savePrefs = () => { try { localStorage.setItem(PREFS, JSON.stringify(prefs)); } catch (e) {} };
+
+let state = load();
+const ui = {edit: false, sel: null, query: '', depts: new Set(), list: 'all'};
+
+function load() {
+  if (SHARED) return fresh();  // the published map loads from the team's shared store instead
+  let local = null;
+  try { local = JSON.parse(localStorage.getItem(STORE)); } catch (e) {}
+  if (local && Array.isArray(local.seats) && (local.savedAt || 0) >= (SEED.savedAt || 0)) return normalize(local);
+  const base = fresh();
+  if (!local) migrateOld(base);
+  return base;
+}
+function applyFloor() {
+  W = state.floor.w; H = state.floor.h;
+  document.documentElement.style.setProperty('--floor-ar', (W / H).toFixed(3));
+}
+function fresh() { return normalize(structuredClone(SEED)); }
+// Chairs live in their own list so desks can have any number of them (or none).
+function normalize(st) {
+  st.rooms ||= structuredClone(SEED.rooms);
+  st.teamColors ||= {};
+  st.floor ||= {x: 0, y: 0, w: 2100, h: 1250};
+  if (!Array.isArray(st.chairs)) {
+    st.chairs = [];
+    for (const s of st.seats) if (s.chair) st.chairs.push({id: 'c' + s.id, seat: s.id, x: s.chair.x, y: s.chair.y, r: s.chair.r || 0});
+  }
+  for (const s of st.seats) delete s.chair;
+  // Older layouts drew the conference table as part of the room; turn it into a real, editable table.
+  for (const r of st.rooms) {
+    if (!r.table) continue;
+    const t = r.table, id = Math.max(0, ...st.seats.map(x => x.id)) + 1;
+    if (t.w > 0) {
+      st.seats.push({id, role: 'Conference table', name: '', dept: 'Shared', email: '', phone: '', notes: '', type: 'table', area: '', room: r.id, x: t.x, y: t.y, w: t.w, h: t.h});
+      st.chairs.push({id: 't' + id + 'a', seat: id, x: t.x + t.w / 2, y: t.y - 16, r: 180}, {id: 't' + id + 'b', seat: id, x: t.x + t.w / 2, y: t.y + t.h + 16, r: 0});
+    }
+    delete r.table;
+  }
+  return st;
+}
+const newId = () => 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+// Carry names typed into the previous version of this file over by matching desk role.
+function migrateOld(base) {
+  try {
+    const old = JSON.parse(localStorage.getItem(OLD_STORE));
+    if (!Array.isArray(old)) return;
+    let n = 0;
+    for (const o of old) {
+      if (!o.name) continue;
+      const s = base.seats.find(x => !x.name && x.role.toLowerCase() === String(o.title).toLowerCase());
+      if (s) { s.name = o.name; n++; }
+    }
+    if (n) setTimeout(() => toast(`Brought over ${n} name${n > 1 ? 's' : ''} from your previous layout`), 600);
+  } catch (e) {}
+}
+let saveTimer;
+function save() {
+  clearTimeout(saveTimer);
+  if (SHARED) { if (live.ready && !live.readOnly) { setLive('Saving…', 'wait'); pushChanges(); } return; }
+  state.savedAt = Date.now();
+  try {
+    localStorage.setItem(STORE, JSON.stringify(state));
+    const s = $('#saved'); s.classList.add('on'); clearTimeout(s._t); s._t = setTimeout(() => s.classList.remove('on'), 1400);
+  } catch (e) { toast('Could not save in this browser. Use ⋯ → Back up layout.'); }
+}
+const saveSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(save, 350); };
+
+/* ---------------- shared team store (published map only) ---------------- */
+// Each desk, room and chair is its own document, so two people editing different things never overwrite each other.
+const KINDS = ['seats', 'rooms', 'chairs'];
+const live = {db: null, ready: false, readOnly: false, busy: false, again: false, queued: [], loaded: new Set(),
+  synced: {seats: new Map(), rooms: new Map(), chairs: new Map(), meta: undefined}};
+// Key-sorted JSON, so the same data always compares equal whatever order the store returns fields in.
+function canon(v) {
+  if (Array.isArray(v)) return '[' + v.map(canon).join(',') + ']';
+  if (v && typeof v === 'object') return '{' + Object.keys(v).sort().filter(k => v[k] !== undefined).map(k => JSON.stringify(k) + ':' + canon(v[k])).join(',') + '}';
+  return JSON.stringify(v ?? null);
+}
+const metaOf = st => ({floor: st.floor, teamColors: st.teamColors});
+function setLive(text, kind) { const el = $('#live'); el.textContent = text; el.dataset.state = kind; el.hidden = false; }
+// Write whatever differs from the store, one document at a time.
+async function pushChanges() {
+  if (!live.db || !live.ready || live.readOnly) return;
+  if (live.busy) { live.again = true; return; }
+  live.busy = true;
+  try {
+    do {
+      live.again = false;
+      for (const kind of KINDS) {
+        const seen = new Set();
+        for (const o of state[kind]) {
+          const k = String(o.id), c = canon(o); seen.add(k);
+          if (live.synced[kind].get(k) === c) continue;
+          await live.db.doc(kind + '/' + k).set(JSON.parse(JSON.stringify(o)));
+          live.synced[kind].set(k, c);
+        }
+        for (const k of [...live.synced[kind].keys()]) {
+          if (seen.has(k)) continue;
+          await live.db.doc(kind + '/' + k).delete(); live.synced[kind].delete(k);
+        }
+      }
+      const m = metaOf(state), mc = canon(m);
+      if (live.synced.meta !== mc) { await live.db.doc('meta/layout').set(JSON.parse(JSON.stringify(m))); live.synced.meta = mc; }
+    } while (live.again);
+    setLive('Live · saved for everyone', 'ok');
+  } catch (err) {
+    if (err?.code === 'invalid_argument') setReadOnly();
+    else if (err?.code === 'quota_exceeded') { setLive('Not saved', 'warn'); toast('The shared map is full. Delete some desks or chairs and try again.'); }
+    else { setLive('Not saved yet · retrying', 'warn'); setTimeout(pushChanges, 4000); }
+  } finally { live.busy = false; }
+}
+// Fold another person's changes into the local layout. Objects are updated in place so an open panel keeps working.
+function applyRemote(kind, docs) {
+  if (gesture && gesture.type !== 'pan' && gesture.type !== 'pinch') { live.queued.push([kind, docs]); return false; }
+  let changed = false;
+  if (kind === 'meta') {
+    const c = docs && canon(docs);
+    if (docs && c !== live.synced.meta) { live.synced.meta = c; Object.assign(state, structuredClone(docs)); changed = true; }
+    return changed;
+  }
+  const arr = state[kind], byKey = new Map(arr.map(o => [String(o.id), o])), seen = new Set();
+  for (const d of docs) {
+    const body = d.data(); if (!body) continue;
+    const k = d.id, c = canon(body), prev = live.synced[kind].get(k), cur = byKey.get(k);
+    seen.add(k); live.synced[kind].set(k, c);
+    if (!cur) { arr.push(structuredClone(body)); changed = true; }
+    else if (c !== prev && canon(cur) !== c) { for (const f of Object.keys(cur)) delete cur[f]; Object.assign(cur, structuredClone(body)); changed = true; }
+  }
+  for (const [k, o] of byKey) {
+    if (seen.has(k) || !live.synced[kind].has(k)) continue;
+    live.synced[kind].delete(k); arr.splice(arr.indexOf(o), 1); changed = true;
+  }
+  return changed;
+}
+function flushQueued() {
+  if (!live.queued.length) return;
+  const q = live.queued; live.queued = [];
+  let changed = false;
+  for (const [kind, docs] of q) changed = applyRemote(kind, docs) || changed;
+  if (changed) onRemote();
+}
+function onRemote() {
+  applyFloor(); renderPlan(); refreshMap(); refreshSide(); applyClasses();
+  if (ui.sel && ui.sel.kind !== 'floor' && !selSeat() && !selRoom() && !selChair()) { ui.sel = null; renderCard(); }
+  else if (!card.contains(document.activeElement)) renderCard();
+  if (roster.open && !roster.contains(document.activeElement)) renderRoster();
+}
+function setReadOnly() {
+  live.readOnly = true;
+  document.documentElement.classList.add('readonly');
+  if (ui.edit) setEdit(false);
+  if (live.ready) setLive('Live · view only', 'ok');
+}
+async function connectLive() {
+  $('#loading').hidden = false;
+  setLive('Connecting…', 'wait');
+  const db = window.claude?.use ? await window.claude.use('db') : null;
+  if (!db) {
+    $('#loading').innerHTML = '<b>The live map needs you signed in to Claude.</b><span>Open this link while signed in to see where everyone sits.</span>';
+    setLive('Not connected', 'warn'); return;
+  }
+  live.db = db;
+  const user = await window.claude.use('user');
+  if (user && (await user.can('data.write')) === false) setReadOnly();
+  const first = () => {
+    if (live.ready || live.loaded.size < 4) return;
+    live.ready = true; $('#loading').hidden = true;
+    setLive(live.readOnly ? 'Live · view only' : 'Live · shared with your team', 'ok');
+    applyClasses(); animateTo(fitBox()); fromHash();
+  };
+  const fail = err => setLive(err?.code === 'revoked' ? 'Disconnected' : 'Connection lost · reload the page', 'warn');
+  for (const kind of KINDS) {
+    db.collection(kind).limit(1000).onSnapshot(snap => {
+      if (applyRemote(kind, snap.docs)) onRemote();
+      live.loaded.add(kind); first();
+    }, fail);
+  }
+  db.doc('meta/layout').onSnapshot(snap => {
+    if (applyRemote('meta', snap.exists ? snap.data() : null)) onRemote();
+    live.loaded.add('meta'); first();
+  }, fail);
+}
+
+const seatById = id => state.seats.find(s => s.id === id);
+const roomById = id => state.rooms.find(r => r.id === id);
+const selSeat = () => ui.sel?.kind === 'seat' ? seatById(ui.sel.id) : null;
+const selRoom = () => ui.sel?.kind === 'room' ? roomById(ui.sel.id) : null;
+const chairById = id => state.chairs.find(c => c.id === id);
+const selChair = () => ui.sel?.kind === 'chair' ? chairById(ui.sel.id) : null;
+const chairsOf = s => state.chairs.filter(c => c.seat === s.id);
+
+function deptColor(d) {
+  if (state?.teamColors?.[d]) return state.teamColors[d];
+  if (DEPTS[d]) return DEPTS[d];
+  let h = 0; for (const c of String(d)) h = (h * 31 + c.charCodeAt(0)) % 360;
+  return `hsl(${h} 45% 45%)`;
+}
+function allDepts() {
+  const set = new Set(state.seats.map(s => s.dept).filter(Boolean));
+  return [...Object.keys(DEPTS).filter(d => set.has(d)), ...[...set].filter(d => !DEPTS[d]).sort()];
+}
+const isOpen = s => !s.name && (s.type === 'hot' || s.type === 'vacant');
+const isTable = s => s.type === 'table';
+const workstations = () => state.seats.filter(s => !isTable(s));
+const STATUS = {taken: ['Assigned', '#2f6fc0'], open: ['Open seat', '#1d9a5b'], hot: ['Hot desk (free)', '#e0a21a'], none: ['Name not added', '#9aa1ad']};
+const statusKey = s => s.name ? 'taken' : s.type === 'hot' ? 'hot' : s.type === 'vacant' ? 'open' : 'none';
+const PALETTE = ['#e05d5d', '#f08c3a', '#e9c13b', '#5cb85c', '#2e9d8f', '#3b82c4', '#6a5acd', '#c2569b', '#8d6e63', '#6b7280'];
+// The colour a desk is painted with under the current "Colour" setting (null = plain wood).
+function deskColor(s) {
+  const m = prefs.colorBy;
+  if (m === 'status') return STATUS[statusKey(s)][1];
+  if (m === 'team') return s.color || deptColor(s.dept);
+  if (m === 'custom') return s.color || null;
+  return null;
+}
+function statusLabel(s) {
+  if (s.name) return s.type === 'hot' ? 'Hot desk' : 'Assigned';
+  if (s.type === 'hot') return 'Hot desk · available';
+  if (s.type === 'vacant') return 'Open seat';
+  return 'Name not added yet';
+}
+function initials(name) {
+  const p = String(name).trim().split(/\s+/).filter(Boolean);
+  return ((p[0]?.[0] || '') + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase();
+}
+function shortName(name) {
+  const p = String(name).trim().split(/\s+/);
+  const s = p.length > 1 ? `${p[0]} ${p[p.length - 1][0]}.` : p[0];
+  return s.length > 16 ? s.slice(0, 15) + '…' : s;
+}
+const filtering = () => ui.query.trim() !== '' || ui.depts.size > 0;
+function matches(s) {
+  if (ui.depts.size && !ui.depts.has(s.dept)) return false;
+  const q = ui.query.trim().toLowerCase();
+  if (!q) return true;
+  return [s.name, s.role, s.dept, s.email, s.phone, s.notes, s.area, '#' + s.id].join(' ').toLowerCase().includes(q);
+}
+
+/* ---------------- viewport (pan / zoom) ---------------- */
+let vb = {x: 0, y: 0, w: W, h: H};
+const MINW = 240, maxW = () => W * 1.6;
+function size() { const r = svg.getBoundingClientRect(); return {l: r.left, t: r.top, w: r.width || 1, h: r.height || 1}; }
+function setVB() {
+  const r = size();
+  vb.h = vb.w * r.h / r.w;
+  vb.x = clamp(vb.x, -vb.w / 2, W - vb.w / 2);
+  // When zoomed in, don't let the view drift far past the top/bottom walls.
+  vb.y = vb.h < H + 80 ? clamp(vb.y, -40, H - vb.h + 40) : clamp(vb.y, -vb.h / 2, H - vb.h / 2);
+  svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+}
+function fitBox() {
+  const r = size(), a = r.h / r.w, pad = 16;
+  let w = W + pad * 2, h = w * a;
+  if (h < H + pad * 2) { h = H + pad * 2; w = h / a; }
+  return {x: W / 2 - w / 2, y: H / 2 - h / 2, w};
+}
+function toSvg(cx, cy) { const r = size(); return {x: vb.x + (cx - r.l) * vb.w / r.w, y: vb.y + (cy - r.t) * vb.w / r.w}; }
+function zoomAt(cx, cy, f) {
+  const p = toSvg(cx, cy), nw = clamp(vb.w * f, MINW, maxW()), k = nw / vb.w;
+  vb.x = p.x - (p.x - vb.x) * k; vb.y = p.y - (p.y - vb.y) * k; vb.w = nw; setVB();
+}
+let anim;
+function animateTo(t, ms = 480) {
+  cancelAnimationFrame(anim);
+  const from = {...vb}, t0 = performance.now();
+  const step = now => {
+    const k = clamp((now - t0) / ms, 0, 1), e = 1 - Math.pow(1 - k, 3);
+    vb.x = from.x + (t.x - from.x) * e; vb.y = from.y + (t.y - from.y) * e; vb.w = from.w + (t.w - from.w) * e;
+    setVB();
+    if (k < 1) anim = requestAnimationFrame(step);
+  };
+  anim = requestAnimationFrame(step);
+}
+function flyTo(box) {
+  const r = size(), fit = fitBox();
+  const w = clamp(Math.max(box.w, box.h) * 8, 720, fit.w);
+  const upp = w / r.w, h = w * r.h / r.w;
+  const cardShift = window.innerWidth > 960 ? 175 * upp : 0;
+  const mobileShift = window.innerWidth <= 960 ? h * 0.2 : 0;
+  animateTo({x: box.x + box.w / 2 - w / 2 - cardShift, y: box.y + box.h / 2 - h / 2 + mobileShift, w});
+}
+
+/* ---------------- rendering: static plan ---------------- */
+function renderPlan() {
+  const g = $('#plan'); g.replaceChildren();
+  el('rect', {x: 0, y: 0, width: W, height: H, fill: '#ebe7e0'}, g);
+  el('rect', {x: 10, y: 10, width: W - 20, height: H - 20, rx: 6, fill: '#d9d6d1'}, g);
+  el('rect', {x: 10, y: 10, width: W - 20, height: H - 20, rx: 6, fill: 'url(#grid)'}, g);
+  for (const r of state.rooms) {
+    if (r.kind === 'lounge') {
+      el('rect', {x: r.x, y: r.y, width: r.w, height: r.h, rx: 4, fill: r.color, opacity: .75}, g);
+      el('rect', {x: r.x, y: r.y, width: r.w, height: r.h, rx: 4, fill: 'url(#rugdots)'}, g);
+      // Sofa corner anchored to the room's top-right so it follows moves and resizes.
+      if (r.w >= 300 && r.h >= 190) {
+        const sofa = {fill: '#cfccc6', stroke: '#a9a59d', 'stroke-width': 2}, R = r.x + r.w;
+        el('rect', {x: R - 210, y: r.y + 8, width: 190, height: 40, rx: 12, ...sofa}, g);
+        el('rect', {x: R - 62, y: r.y + 8, width: 46, height: Math.min(170, r.h - 60), rx: 12, ...sofa}, g);
+        el('circle', {cx: R - 136, cy: r.y + 116, r: 30, fill: 'url(#wood)', stroke: '#b98650', 'stroke-width': 1.5}, g);
+        el('circle', {cx: R - 278, cy: r.y + 162, r: 20, fill: '#5c5f66'}, g);
+        el('circle', {cx: R - 206, cy: r.y + 162, r: 20, fill: '#5c5f66'}, g);
+      }
+      if (r.w >= 120 && r.h >= 120) plant(g, r.x + r.w - 34, r.y + r.h - 40, 20);
+    } else {
+      el('rect', {x: r.x, y: r.y, width: r.w, height: r.h, rx: 3, fill: r.color, opacity: .62, stroke: '#f4f1ec', 'stroke-width': 8}, g);
+      el('rect', {x: r.x - 4, y: r.y - 4, width: r.w + 8, height: r.h + 8, rx: 4, fill: 'none', stroke: '#b9b2a6', 'stroke-width': 1.5}, g);
+    }
+    const narrow = r.w < 200, tr = textRot(r);
+    // Turned labels run down the room's left edge; horizontal ones sit top-left (or centred in narrow rooms).
+    const lab = tr
+      ? el('text', {x: r.x + 22, y: r.y + r.h / 2, 'text-anchor': 'middle', 'font-size': 12, class: 'room-label', transform: `rotate(${tr} ${r.x + 22} ${r.y + r.h / 2})`}, g)
+      : el('text', {x: narrow ? r.x + r.w / 2 : r.x + 16, y: r.y + (narrow ? 24 : 28), 'text-anchor': narrow ? 'middle' : 'start',
+        'font-size': narrow ? 10 : 12, style: narrow ? 'letter-spacing:.04em' : null, class: 'room-label'}, g);
+    lab.textContent = r.name;
+  }
+  el('rect', {x: 6, y: 6, width: W - 12, height: H - 12, rx: 8, fill: 'none', stroke: '#c9c2b6', 'stroke-width': 8}, g);
+}
+function plant(g, x, y, r) {
+  el('circle', {cx: x, cy: y, r, fill: '#3f6b35'}, g);
+  el('circle', {cx: x - r * .3, cy: y - r * .3, r: r * .55, fill: '#5a8d48'}, g);
+}
+function chairGlyph(g, x, y, rot, attrs) {
+  const c = el('g', {transform: `translate(${x} ${y}) rotate(${rot || 0})`, ...attrs}, g);
+  el('rect', {x: -19, y: -19, width: 38, height: 34, rx: 9, class: 'chair-seat'}, c);
+  el('rect', {x: -16, y: 13, width: 32, height: 8, rx: 4, class: 'chair-back'}, c);
+  return c;
+}
+
+/* ---------------- rendering: rooms, desks ---------------- */
+function renderRoomHits() {
+  const g = $('#roomhits'); g.replaceChildren();
+  for (const r of state.rooms) {
+    el('rect', {x: r.x, y: r.y, width: r.w, height: r.h, rx: 4, class: 'room-hit' + (ui.sel?.kind === 'room' && ui.sel.id === r.id ? ' sel' : ''), 'data-room': r.id}, g);
+  }
+}
+function wrap(text, maxW, fs, maxLines) {
+  const maxC = Math.max(3, Math.floor(maxW / (fs * 0.6)));
+  const lines = []; let cur = '';
+  for (const w of String(text).split(/\s+/).filter(Boolean)) {
+    const t = cur ? cur + ' ' + w : w;
+    if (t.length <= maxC) cur = t;
+    else { if (cur) lines.push(cur); cur = w.length > maxC ? w.slice(0, maxC - 1) + '…' : w; }
+  }
+  if (cur) lines.push(cur);
+  if (lines.length > maxLines) { lines.length = maxLines; lines[maxLines - 1] = lines[maxLines - 1].replace(/.?$/, '…'); }
+  return lines;
+}
+const textRot = o => o.textRot ?? (o.vertical ? 270 : 0);
+function deskLabel(s, g) {
+  const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
+  const tr = textRot(s), side = tr % 180 !== 0;
+  const len = side ? s.h : s.w, thick = side ? s.w : s.h;
+  // Keep text upright on a turned desk unless the text direction was set by hand.
+  const turn = ((s.rot || 0) % 360 + 360) % 360, flip = s.textRot == null && turn > 90 && turn <= 270 ? 180 : 0;
+  const lt = tr + flip;
+  const lg = el('g', {class: 'desk-label', transform: lt ? `rotate(${lt} ${cx} ${cy})` : null, 'pointer-events': 'none'}, g);
+  const fs = thick < 58 ? 12.5 : 14, lh = fs * 1.15;
+  let second = null;
+  if (prefs.names && !isTable(s)) second = s.name ? {t: s.name, c: 'label-name'} : isOpen(s) ? {t: 'Open', c: 'label-open'} : {t: 'Unassigned', c: 'label-none'};
+  const roleLines = wrap(s.role, len - 14, fs, clamp(Math.floor((thick - 8 - (second ? lh : 0)) / lh), 1, 3));
+  const nameLines = second ? wrap(second.t, len - 12, fs - 1, 1) : [];
+  const total = (roleLines.length + nameLines.length) * lh;
+  let y = cy - total / 2 + fs * 0.85;
+  for (const l of roleLines) { const t = el('text', {x: cx, y, 'text-anchor': 'middle', 'font-size': fs, class: 'label-role'}, lg); t.textContent = l; y += lh; }
+  for (const l of nameLines) { const t = el('text', {x: cx, y: y + 1, 'text-anchor': 'middle', 'font-size': fs - 1, class: second.c}, lg); t.textContent = l; y += lh; }
+}
+function renderDesks() {
+  const gc = $('#chairs'), gd = $('#desks');
+  gc.replaceChildren(); gd.replaceChildren();
+  const sel = selSeat(), selC = selChair();
+  for (const c of state.chairs) {
+    chairGlyph(gc, c.x, c.y, c.r, {class: 'chair' + (c === selC ? ' sel' : ''), 'data-chair': c.id});
+  }
+  // Draw the selected desk last so it sits on top while being dragged.
+  for (const s of [...state.seats.filter(x => x !== sel), ...(sel ? [sel] : [])]) {
+    const cls = ['seat', sel === s ? 'sel' : '', filtering() && matches(s) ? 'match' : ''].join(' ');
+    const g = el('g', {class: cls, 'data-seat': s.id, transform: deskTransform(s)}, gd);
+    el('rect', {x: s.x + 3, y: s.y + 6, width: s.w, height: s.h, rx: 5, class: 'desk-shadow'}, g);
+    el('rect', {x: s.x, y: s.y, width: s.w, height: s.h, rx: 5, class: 'desk-top'}, g);
+    const tint = deskColor(s);
+    if (tint) el('rect', {x: s.x, y: s.y, width: s.w, height: s.h, rx: 5, class: 'desk-tint', fill: tint}, g);
+    deskLabel(s, g);
+    el('rect', {x: s.x, y: s.y, width: s.w, height: s.h, rx: 5, class: 'desk-hit'}, g);
+  }
+  renderHandles();
+}
+/* Desk geometry: x/y/w/h is the unrotated box; rot turns it around its centre. */
+const deskCenter = s => ({x: s.x + s.w / 2, y: s.y + s.h / 2});
+const deskTransform = s => s.rot ? `rotate(${s.rot} ${s.x + s.w / 2} ${s.y + s.h / 2})` : null;
+function rotPt(x, y, deg) { const a = deg * Math.PI / 180, c = Math.cos(a), n = Math.sin(a); return {x: x * c - y * n, y: x * n + y * c}; }
+// Desk-local offset (from the desk centre) → map coordinates.
+function toWorld(s, lx, ly) { const c = deskCenter(s), p = rotPt(lx, ly, s.rot || 0); return {x: c.x + p.x, y: c.y + p.y}; }
+// Axis-aligned bounding box of a (possibly rotated) desk.
+function deskBox(s) {
+  const pts = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => toWorld(s, a * s.w / 2, b * s.h / 2));
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  return {x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys)};
+}
+// Turn a desk (and the chairs attached to it) around its centre.
+function rotateDesk(s, delta) {
+  if (!delta) return;
+  const c = deskCenter(s);
+  for (const ch of chairsOf(s)) {
+    const p = rotPt(ch.x - c.x, ch.y - c.y, delta);
+    ch.x = Math.round(c.x + p.x); ch.y = Math.round(c.y + p.y); ch.r = (((ch.r || 0) + delta) % 360 + 360) % 360;
+  }
+  s.rot = (((s.rot || 0) + delta) % 360 + 360) % 360;
+  if (s.rot === 0) delete s.rot;
+}
+// Resize + rotate handles on the selected desk while editing.
+function renderHandles() {
+  const root = $('#handles'); root.replaceChildren();
+  const k = Math.max(5, vb.w / 220);
+  if (ui.edit && ui.sel?.kind === 'floor') {
+    const f = state.floor;
+    el('rect', {x: 0, y: 0, width: f.w, height: f.h, class: 'floor-outline'}, root);
+    for (const [h, x, y] of [['e', f.w, f.h / 2], ['s', f.w / 2, f.h], ['se', f.w, f.h]])
+      el('rect', {x: x - k * 1.4, y: y - k * 1.4, width: k * 2.8, height: k * 2.8, rx: k * .5, class: 'handle', 'data-h': h}, root);
+    return;
+  }
+  const s = selSeat() || selRoom(); if (!ui.edit || !s) return;
+  const g = el('g', {transform: selSeat() ? deskTransform(s) : null}, root);
+  const pts = {nw: [0, 0], n: [.5, 0], ne: [1, 0], e: [1, .5], se: [1, 1], s: [.5, 1], sw: [0, 1], w: [0, .5]};
+  if (selSeat()) {
+    const cx = s.x + s.w / 2, top = s.y - k * 6;
+    el('line', {x1: cx, y1: s.y, x2: cx, y2: top, class: 'rot-line'}, g);
+    el('circle', {cx, cy: top, r: k * 1.3, class: 'handle rot-handle', 'data-h': 'rot'}, g);
+  }
+  for (const [h, [fx, fy]] of Object.entries(pts)) {
+    el('rect', {x: s.x + s.w * fx - k, y: s.y + s.h * fy - k, width: k * 2, height: k * 2, rx: k * .4, class: 'handle', 'data-h': h}, g);
+  }
+}
+function renderDim() {
+  const p = $('#dim');
+  if (!filtering()) { p.setAttribute('d', ''); return; }
+  let d = `M-2000 -2000H${W + 2000}V${H + 2000}H-2000Z`;
+  for (const s of state.seats) if (matches(s)) { const b = deskBox(s); d += `M${b.x - 5} ${b.y - 5}h${b.w + 10}v${b.h + 10}h${-(b.w + 10)}Z`; }
+  p.setAttribute('d', d);
+}
+function renderRing() {
+  const c = selChair(), ring = $('#ring'), s = selSeat() || selRoom() || (c && {x: c.x - 22, y: c.y - 22, w: 44, h: 44});
+  if (!s) { ring.setAttribute('visibility', 'hidden'); return; }
+  ring.setAttribute('visibility', 'visible');
+  const t = selSeat() ? deskTransform(s) : null;
+  t ? $('#ringg').setAttribute('transform', t) : $('#ringg').removeAttribute('transform');
+  ring.setAttribute('x', s.x - 6); ring.setAttribute('y', s.y - 6);
+  ring.setAttribute('width', s.w + 12); ring.setAttribute('height', s.h + 12);
+}
+let mapQueued = false;
+function refreshMap() {
+  if (mapQueued) return;
+  mapQueued = true;
+  requestAnimationFrame(() => { mapQueued = false; renderDesks(); renderDim(); renderRing(); renderRoomHits(); renderHandles(); });
+}
+function applyClasses() {
+  svg.classList.toggle('colors', prefs.colorBy !== 'off');
+  svg.classList.toggle('editing', ui.edit);
+  document.body.classList.toggle('editing', ui.edit);
+  $('#optColorBy').value = prefs.colorBy;
+  renderLegend();
+  $('#optNames').checked = prefs.names;
+  $('#editbar').hidden = !ui.edit;
+  $('#btnEdit span').textContent = ui.edit ? 'Done' : 'Edit';
+  $('#banner').hidden = !prefs.banner || state.seats.some(s => s.name) || (SHARED && (!live.ready || live.readOnly));
+}
+
+function renderLegend() {
+  const box = $('#legend'), m = prefs.colorBy;
+  box.hidden = m === 'off';
+  $('#mapwrap').classList.toggle('has-legend', m !== 'off');
+  if (m === 'off') return;
+  let items = '';
+  if (m === 'team') items = allDepts().map(d => `<span class="li">${ui.edit
+      ? `<input type="color" data-team="${esc(d)}" value="${esc(toHex(deptColor(d)))}" title="Change ${esc(d)} colour">`
+      : `<i class="sw" style="background:${deptColor(d)}"></i>`}${esc(d)}</span>`).join('');
+  if (m === 'status') items = Object.values(STATUS).map(([l, c]) => `<span class="li"><i class="sw" style="background:${c}"></i>${l}</span>`).join('');
+  if (m === 'custom') {
+    const used = [...new Set(state.seats.map(s => s.color).filter(Boolean))];
+    items = used.length ? used.map(c => `<span class="li"><i class="sw" style="background:${c}"></i>${(n => n + (n === 1 ? ' desk' : ' desks'))(state.seats.filter(s => s.color === c).length)}</span>`).join('')
+      : '<span class="li">Click <b>Edit</b>, pick a desk, then choose its colour.</span>';
+  }
+  box.innerHTML = `<b>${{team: 'Teams', status: 'Status', custom: 'Custom colours'}[m]}</b>${items}${m === 'team' && !ui.edit ? '<span class="li hint">Edit mode lets you change these</span>' : ''}`;
+}
+function toHex(c) {
+  if (/^#[0-9a-f]{6}$/i.test(c)) return c;
+  const x = document.createElement('canvas').getContext('2d'); x.fillStyle = c; return x.fillStyle;
+}
+$('#legend').addEventListener('input', e => {
+  const d = e.target.dataset.team; if (!d) return;
+  state.teamColors[d] = e.target.value; saveSoon(); refreshMap(); renderDepts(); renderList();
+});
+
+/* ---------------- sidebar ---------------- */
+function renderStats() {
+  const ws = workstations(), total = ws.length, named = ws.filter(s => s.name).length, open = ws.filter(isOpen).length;
+  $('#stats').textContent = `${total} desks · ${named} people · ${open} open`;
+}
+function renderDepts() {
+  const box = $('#depts'); box.replaceChildren();
+  for (const d of allDepts()) {
+    const b = document.createElement('button');
+    b.className = 'dchip' + (ui.depts.has(d) ? ' on' : '');
+    b.style.setProperty('--c', deptColor(d));
+    b.innerHTML = `<i></i>${esc(d)} <em>${workstations().filter(s => s.dept === d).length}</em>`;
+    b.onclick = () => { ui.depts.has(d) ? ui.depts.delete(d) : ui.depts.add(d); refreshSide(); refreshMap(); };
+    box.append(b);
+  }
+  if (ui.depts.size) {
+    const c = document.createElement('button'); c.className = 'dchip clear'; c.textContent = 'Clear';
+    c.onclick = () => { ui.depts.clear(); refreshSide(); refreshMap(); };
+    box.append(c);
+  }
+  const dl = $('#deptList'); dl.replaceChildren(...[...new Set([...Object.keys(DEPTS), ...allDepts()])].map(d => new Option(d, d)));
+}
+function avatarHTML(s, lg) {
+  const cls = 'av' + (lg ? ' lg' : '');
+  if (s.name) return `<span class="${cls}" style="--c:${deptColor(s.dept)}">${esc(initials(s.name))}</span>`;
+  if (isOpen(s)) return `<span class="${cls} open">${lg ? 'Open' : '+'}</span>`;
+  return `<span class="${cls} none">${esc(String(s.id))}</span>`;
+}
+function renderList() {
+  const list = $('#list'); list.replaceChildren();
+  const rows = workstations().filter(s => matches(s) && (ui.list === 'all' || (ui.list === 'people' ? !!s.name : isOpen(s))));
+  if (!rows.length) {
+    list.innerHTML = `<div class="nomatch">${ui.list === 'people' && !state.seats.some(s => s.name) ? 'No names added yet.<br>Open <b>Roster</b> to add your team.' : 'Nothing matches that search.'}</div>`;
+    return;
+  }
+  const sel = selSeat();
+  for (const d of allDepts()) {
+    const group = rows.filter(s => s.dept === d);
+    if (!group.length) continue;
+    group.sort((a, b) => (b.name ? 1 : 0) - (a.name ? 1 : 0) || a.id - b.id);
+    const h = document.createElement('div'); h.className = 'grp'; h.style.setProperty('--c', deptColor(d));
+    h.innerHTML = `<i></i>${esc(d)} · ${group.length}`; list.append(h);
+    for (const s of group) {
+      const b = document.createElement('button');
+      b.className = 'row' + (sel === s ? ' sel' : ''); b.dataset.id = s.id;
+      b.innerHTML = `${avatarHTML(s)}<span class="txt"><b>${esc(s.name || s.role)}</b><small>${esc(s.name ? s.role : statusLabel(s))} · Desk ${s.id}</small></span>${isOpen(s) ? '<span class="tag">Open</span>' : ''}`;
+      list.append(b);
+    }
+  }
+}
+function renderFoot() {
+  $('#foot').innerHTML = `<span>Press <b>/</b> to search · scroll to zoom · drag to pan</span>`;
+}
+function refreshSide() { renderStats(); renderDepts(); renderList(); renderFoot(); }
+
+$('#list').addEventListener('click', e => { const r = e.target.closest('.row'); if (r) select({kind: 'seat', id: +r.dataset.id}, true); });
+$('#list').addEventListener('pointerover', e => hoverSeat(e.target.closest('.row')?.dataset.id));
+$('#list').addEventListener('pointerleave', () => hoverSeat(null));
+function hoverSeat(id) {
+  document.querySelectorAll('#desks .seat.hov').forEach(n => n.classList.remove('hov'));
+  if (id) document.querySelector(`#desks .seat[data-seat="${id}"]`)?.classList.add('hov');
+}
+
+/* ---------------- details card ---------------- */
+const ICON = {
+  mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>',
+  phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h14v16H5z"/><path d="M9 9h6M9 13h6M9 17h3"/></svg>',
+  people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></svg>'
+};
+function renderCard() {
+  const card = $('#card'), s = selSeat(), r = selRoom(), c = selChair();
+  if (!s && !r && !c && ui.sel?.kind !== 'floor') { card.hidden = true; card.innerHTML = ''; return; }
+  card.hidden = false;
+  if (ui.sel?.kind === 'floor') { card.hidden = false; card.innerHTML = floorForm(); return; }
+  card.innerHTML = c ? chairForm(c) : s ? (ui.edit ? seatForm(s) : seatView(s)) : (ui.edit ? roomForm(r) : roomView(r));
+}
+function seatHead(s) {
+  const title = s.name || s.role, sub = isTable(s) ? `Meeting table · ${chairsOf(s).length} chairs` : s.name ? s.role : statusLabel(s);
+  return `<div class="card-head" style="--c:${deptColor(s.dept)}">${avatarHTML(s, true)}<div><h3>${esc(title)}</h3><p>${esc(sub)}</p></div><button class="x" data-act="close" aria-label="Close">×</button></div>`;
+}
+function seatView(s) {
+  if (isTable(s)) return `${seatHead(s)}<div class="card-body">${s.notes ? `<div class="facts"><div>${ICON.note}<span>${esc(s.notes)}</span></div></div>` : '<p class="empty-note">Click <b>Edit</b> to resize, rotate or re-seat this table.</p>'}
+    <div class="card-actions"><button class="btn" data-act="edit">Edit</button></div></div>`;
+  const facts = [];
+  facts.push(`<div>${ICON.pin}<span>Desk ${s.id}${s.area ? ' · ' + esc(s.area) : ''}</span></div>`);
+  if (s.email) facts.push(`<div>${ICON.mail}<a href="mailto:${esc(s.email)}">${esc(s.email)}</a></div>`);
+  if (s.phone) facts.push(`<div>${ICON.phone}<a href="tel:${esc(s.phone.replace(/[^\d+]/g, ''))}">${esc(s.phone)}</a></div>`);
+  if (s.notes) facts.push(`<div>${ICON.note}<span>${esc(s.notes)}</span></div>`);
+  const typePill = s.type === 'desk' ? '' : `<span class="pill ${isOpen(s) ? 'open' : 'ghost'}">${esc(TYPES[s.type])}</span>`;
+  return `${seatHead(s)}<div class="card-body">
+    <div class="pills"><span class="pill" style="--c:${deptColor(s.dept)}">${esc(s.dept)}</span>${typePill}</div>
+    <div class="facts">${facts.join('')}</div>
+    ${!s.name && s.type === 'desk' ? '<p class="empty-note" style="margin-top:10px">Click <b>Edit</b> to add who sits here.</p>' : ''}
+    <div class="card-actions"><button class="btn local-only" data-act="link">Copy link</button><button class="btn" data-act="edit">Edit</button></div>
+  </div>`;
+}
+function field(label, f, val, extra = '') { return `<label>${label}<input data-f="${f}" value="${esc(val)}" ${extra}></label>`; }
+function seatForm(s) {
+  const moveOpts = state.seats.filter(o => o !== s).map(o => `<option value="${o.id}">#${o.id} ${esc(o.role)} — ${esc(o.name || statusLabel(o))}</option>`).join('');
+  const table = isTable(s);
+  return `${seatHead(s)}<div class="card-body"><div class="form">
+    ${table ? `${field('Table name', 'role', s.role)}
+    <label>Type<select data-f="type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}"${s.type === k ? ' selected' : ''}>${v}</option>`).join('')}</select></label>
+    <label>Notes<textarea data-f="notes" rows="2">${esc(s.notes)}</textarea></label><div hidden>` : ''}
+    ${field('Name', 'name', s.name, 'placeholder="Who sits here?" autocomplete="off"')}
+    ${field('Desk / role', 'role', s.role)}
+    <div class="row2">${field('Team', 'dept', s.dept, 'list="deptList"')}
+      <label>Desk type<select data-f="type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}"${s.type === k ? ' selected' : ''}>${v}</option>`).join('')}</select></label></div>
+    ${field('Email', 'email', s.email, 'type="email" placeholder="name@ymu.org"')}
+    <div class="row2">${field('Phone / ext', 'phone', s.phone)}${field('Area', 'area', s.area)}</div>
+    <label>Notes<textarea data-f="notes" rows="2">${esc(s.notes)}</textarea></label>
+    ${s.name ? `<label>Move ${esc(shortName(s.name))} to…<select data-act="move"><option value="">Choose a desk (swaps if taken)</option>${moveOpts}</select></label>` : ''}
+    ${table ? '</div>' : ''}
+    <h4>${table ? 'Table' : 'Desk'} size</h4>
+    <div class="row3"><button class="btn" data-act="shrink">− Smaller</button><button class="btn" data-act="grow">+ Bigger</button><button class="btn" data-act="wider">↔ Longer</button></div>
+    <div class="row2">${field('Width', 'w', s.w, 'type="number" min="30" max="900"')}${field('Depth', 'h', s.h, 'type="number" min="30" max="900"')}</div>
+    <p class="hint-note">Or drag the white handles on the desk.</p>
+    ${textControls(textRot(s))}
+    <h4>Rotate</h4>
+    <div class="row3"><button class="btn" data-act="rotdl" title="Turn left 15°">↺ 15°</button><button class="btn" data-act="rotdr" title="Turn right 15°">↻ 15°</button><button class="btn" data-act="rotd90" title="Quarter turn">↻ 90°</button></div>
+    <div class="row2">${field('Angle (°)', 'rot', s.rot || 0, 'type="number" step="5"')}<label>&nbsp;<button class="btn" data-act="rotd0"${s.rot ? '' : ' disabled'}>Straighten</button></label></div>
+    <p class="hint-note">Or drag the round handle above the desk (hold Shift for any angle).</p>
+    <h4>Chairs · ${chairsOf(s).length}</h4>
+    <div class="row2"><button class="btn" data-act="addchair">+ Add chair</button><button class="btn" data-act="rmchair"${chairsOf(s).length ? '' : ' disabled'}>− Remove chair</button></div>
+    <div class="row2"><button class="btn" data-act="seatsides" title="Fill both long sides">Seat both sides</button><button class="btn" data-act="seataround" title="Fill every side">Seat all around</button></div>
+    <p class="hint-note">These two replace this desk's current chairs.</p>
+    <h4>Desk colour</h4>
+    <div class="swatches">${PALETTE.map(c => `<button data-color="${c}" style="background:${c}" class="${s.color === c ? 'on' : ''}" title="${c}"></button>`).join('')}
+      <label class="custom" title="Any colour"><input type="color" data-f="color" value="${esc(s.color || '#e2b277')}"></label>
+      <button class="none${s.color ? '' : ' on'}" data-color="" title="No custom colour">×</button></div>
+    <div class="row2">${s.name ? '<button class="btn" data-act="clear">Clear person</button>' : '<span></span>'}<button class="btn" data-act="dup">Duplicate desk</button></div>
+    <button class="btn danger" data-act="del">Delete ${table ? 'table' : 'desk'}</button>
+  </div></div>`;
+}
+const CHAIR_ICON = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="5" y="4" width="14" height="12" rx="3"/><path d="M6 19h12"/></svg>';
+function chairForm(c) {
+  const desk = c.seat && seatById(c.seat);
+  const opts = [...state.seats].sort((a, b) => a.id - b.id).map(o => `<option value="${o.id}"${o.id === c.seat ? ' selected' : ''}>#${o.id} ${esc(o.role)}${o.name ? ' — ' + esc(o.name) : ''}</option>`).join('');
+  return `<div class="card-head" style="--c:#2b3442"><span class="av lg" style="--c:#2b3442">${CHAIR_ICON}</span><div><h3>Chair</h3><p>${desk ? `At desk ${desk.id} · ${esc(desk.name || desk.role)}` : 'Free-standing'}</p></div><button class="x" data-act="close" aria-label="Close">×</button></div>
+    <div class="card-body"><div class="form">
+    <label>Belongs to desk<select data-f="seat"><option value="">None (free-standing)</option>${opts}</select></label>
+    <h4>Turn</h4>
+    <div class="row3"><button class="btn" data-act="rotl">↺ Left</button><button class="btn" data-act="rotr">↻ Right</button><button class="btn" data-act="face"${desk ? '' : ' disabled'}>Face desk</button></div>
+    <div class="row2"><button class="btn" data-act="dupchair">Duplicate</button><button class="btn danger" data-act="delchair">Delete chair</button></div>
+    <p class="hint-note">Drag to move · <b>R</b> to turn · <b>Delete</b> to remove</p>
+  </div></div>`;
+}
+function roomView(r) {
+  const occupants = state.seats.filter(s => s.room === r.id && s.name).map(s => esc(s.name)).join(', ');
+  const facts = [];
+  if (r.capacity) facts.push(`<div>${ICON.people}<span>Seats ${r.capacity}</span></div>`);
+  if (occupants) facts.push(`<div>${ICON.pin}<span>${occupants}</span></div>`);
+  if (r.notes) facts.push(`<div>${ICON.note}<span>${esc(r.notes)}</span></div>`);
+  return `<div class="card-head" style="--c:${r.color}"><span class="av lg" style="--c:${r.color}">${esc(initials(r.name))}</span><div><h3>${esc(r.name)}</h3><p>${esc({office: 'Private office', meeting: 'Meeting room', lounge: 'Shared space'}[r.kind] || 'Room')}</p></div><button class="x" data-act="close" aria-label="Close">×</button></div>
+    <div class="card-body"><div class="facts">${facts.join('') || '<p class="empty-note">No details yet.</p>'}</div>
+    <div class="card-actions"><button class="btn" data-act="edit">Edit</button></div></div>`;
+}
+function textControls(tr) {
+  const names = {0: 'Horizontal', 90: 'Reads downward', 180: 'Upside down', 270: 'Reads upward'};
+  return `<h4>Text direction · ${names[tr] || tr + '°'}</h4>
+    <div class="row3"><button class="btn" data-act="txtl" title="Turn the text 90° left">↺ Text</button><button class="btn" data-act="txtr" title="Turn the text 90° right">↻ Text</button><button class="btn" data-act="txt0"${tr ? '' : ' disabled'}>Horizontal</button></div>`;
+}
+const ROOM_KINDS = {office: 'Private office', meeting: 'Meeting room', lounge: 'Lounge / shared space', other: 'Other'};
+function roomForm(r) {
+  return `<div class="card-head" style="--c:${r.color}"><span class="av lg" style="--c:${r.color}">${esc(initials(r.name))}</span><div><h3>${esc(r.name)}</h3><p>Room details</p></div><button class="x" data-act="close" aria-label="Close">×</button></div>
+    <div class="card-body"><div class="form">
+    ${field('Room name', 'name', r.name)}
+    <div class="row2"><label>Type<select data-f="kind">${Object.entries(ROOM_KINDS).map(([k, v]) => `<option value="${k}"${r.kind === k ? ' selected' : ''}>${v}</option>`).join('')}</select></label>
+      ${field('Capacity', 'capacity', r.capacity || '', 'type="number" min="0"')}</div>
+    <h4>Colour</h4><div class="swatches">${ROOM_COLORS.map(c => `<button data-rcolor="${c}" style="background:${c}" class="${r.color === c ? 'on' : ''}"></button>`).join('')}
+      <span class="custom" title="Any colour"><input type="color" data-f="color" value="${esc(r.color)}"></span></div>
+    <label>Notes<textarea data-f="notes" rows="2" placeholder="Booking info, equipment, etc.">${esc(r.notes)}</textarea></label>
+    <h4>Room size</h4>
+    <div class="row3"><button class="btn" data-act="rshrink">− Smaller</button><button class="btn" data-act="rgrow">+ Bigger</button><button class="btn" data-act="rwider">↔ Wider</button></div>
+    <div class="row2">${field('Width', 'w', r.w, 'type="number" min="60" max="6000"')}${field('Depth', 'h', r.h, 'type="number" min="60" max="6000"')}</div>
+    ${textControls(textRot(r))}
+    <p class="hint-note">Drag the room to move it (desks inside move too). Drag the white handles to resize.</p>
+    <button class="btn danger" data-act="delroom">Delete room</button>
+  </div></div>`;
+}
+const ROOM_COLORS = ['#d6bf5f', '#7d9cc4', '#d29e80', '#b9a199', '#cf9f6c', '#958aa3', '#8fb59a', '#c4a3c9', '#a9b4c2', '#e3c9a3'];
+function floorForm() {
+  const f = state.floor;
+  return `<div class="card-head" style="--c:#8a8378"><span class="av lg" style="--c:#8a8378">⬚</span><div><h3>Floor size</h3><p>The whole office space</p></div><button class="x" data-act="close" aria-label="Close">×</button></div>
+    <div class="card-body"><div class="form">
+    <div class="row2">${field('Width', 'fw', f.w, 'type="number" min="600" max="8000" step="50"')}${field('Depth', 'fh', f.h, 'type="number" min="400" max="6000" step="50"')}</div>
+    <div class="row2"><button class="btn" data-act="fwider">↔ +300 wider</button><button class="btn" data-act="fdeeper">↕ +300 deeper</button></div>
+    <div class="row2"><button class="btn" data-act="fnarrow">↔ −300</button><button class="btn" data-act="fshallow">↕ −300</button></div>
+    <button class="btn" data-act="ffit">Shrink to fit everything</button>
+    <p class="hint-note">You can also drag the white handles on the right and bottom walls. For scale, a desk is about 140 wide.</p>
+  </div></div>`;
+}
+const card = $('#card');
+card.addEventListener('input', e => {
+  const f = e.target.dataset.f; if (!f) return;
+  const c = selChair();
+  if (c) { if (f === 'seat') c.seat = e.target.value ? +e.target.value : null; save(); renderCard(); refreshMap(); return; }
+  if (f === 'fw' || f === 'fh') { if (e.target.value === '') return; setFloor(f === 'fw' ? +e.target.value : state.floor.w, f === 'fh' ? +e.target.value : state.floor.h, true); return; }
+  const s = selSeat(), r = selRoom(), obj = s || r; if (!obj) return;
+  let v = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+  if (f === 'w' || f === 'h') { if (v === '') return; v = r ? clamp(Math.round(+v) || 60, 60, 6000) : clamp(Math.round(+v) || 30, 30, 900); }
+  if (f === 'capacity') v = Math.max(0, Math.round(+v) || 0);
+  if (s && f === 'rot') { if (v === '' || v === '-') return; rotateDesk(s, (Math.round(+v) || 0) - (s.rot || 0)); saveSoon(); refreshMap(); return; }
+  obj[f] = v;
+  if (s && f === 'color') { useColour(); card.querySelectorAll('.swatches button').forEach(b => b.classList.remove('on')); }
+  if (r) { renderPlan(); card.querySelector('h3').textContent = r.name; if (f === 'color') card.querySelectorAll('[data-rcolor]').forEach(b => b.classList.remove('on')); }
+  if (s && (f === 'name' || f === 'role' || f === 'dept' || f === 'type')) {
+    card.querySelector('.card-head').outerHTML = seatHead(s);
+  }
+  saveSoon(); refreshMap(); refreshSide(); applyClasses();
+});
+card.addEventListener('focusout', e => { if (e.target.dataset.f === 'name' || e.target.dataset.f === 'dept') { const s = selSeat(); if (s) { s.name = s.name.trim(); s.dept = (s.dept || '').trim() || 'Shared'; } } });
+card.addEventListener('change', e => {
+  if (e.target.dataset.act !== 'move' || !e.target.value) return;
+  const s = selSeat(), t = seatById(+e.target.value); if (!s || !t) return;
+  const who = s.name;
+  for (const f of PERSON_FIELDS) [s[f], t[f]] = [t[f] || '', s[f] || ''];
+  save(); toast(`Moved ${who} to desk ${t.id}${s.name ? ` (swapped with ${s.name})` : ''}`);
+  select({kind: 'seat', id: t.id}, true);
+});
+card.addEventListener('click', e => {
+  const sw = e.target.closest('[data-color]');
+  if (sw && selSeat()) {
+    selSeat().color = sw.dataset.color || undefined; if (!selSeat().color) delete selSeat().color; else useColour();
+    save(); renderCard(); refreshMap(); renderLegend(); return;
+  }
+  const rc = e.target.closest('[data-rcolor]');
+  if (rc && selRoom()) { selRoom().color = rc.dataset.rcolor; save(); renderPlan(); renderCard(); refreshMap(); return; }
+  const act = e.target.closest('[data-act]')?.dataset.act; if (!act || act === 'move') return;
+  const s = selSeat(), c = selChair(), room = selRoom();
+  if (room && (act === 'rgrow' || act === 'rshrink' || act === 'rwider')) {
+    const k = act === 'rgrow' ? 1.15 : act === 'rshrink' ? 1 / 1.15 : 1;
+    const nw = clamp(Math.round(act === 'rwider' ? room.w + 60 : room.w * k), 60, 6000), nh = clamp(Math.round(room.h * (act === 'rwider' ? 1 : k)), 60, 6000);
+    room.x = Math.round(room.x + (room.w - nw) / 2); room.y = Math.round(room.y + (room.h - nh) / 2); room.w = nw; room.h = nh;
+    syncSizeFields(room); save(); renderPlan(); refreshMap(); return;
+  }
+  if (room && act === 'delroom') {
+    if (!armed(e.target.closest('[data-act]'), 'Click again to delete the room')) return;
+    state.rooms = state.rooms.filter(x => x !== room); for (const d of state.seats) if (d.room === room.id) d.room = null;
+    ui.sel = null; save(); renderAll(); return;
+  }
+  if (act[0] === 'f' && ui.sel?.kind === 'floor') {
+    const fl = state.floor;
+    if (act === 'ffit') { const b = contentBox(); setFloor(b.x + b.w + 40, b.y + b.h + 40); }
+    else setFloor(fl.w + (act === 'fwider' ? 300 : act === 'fnarrow' ? -300 : 0), fl.h + (act === 'fdeeper' ? 300 : act === 'fshallow' ? -300 : 0));
+    renderCard(); return;
+  }
+  if (s && (act === 'grow' || act === 'shrink' || act === 'wider')) {
+    const k = act === 'grow' ? 1.15 : act === 'shrink' ? 1 / 1.15 : 1;
+    const tall = s.h > s.w;
+    const nw = clamp(Math.round(act === 'wider' ? (tall ? s.w : s.w + 30) : s.w * k), 30, 900);
+    const nh = clamp(Math.round(act === 'wider' ? (tall ? s.h + 30 : s.h) : s.h * k), 30, 900);
+    s.x = Math.round(s.x + (s.w - nw) / 2); s.y = Math.round(s.y + (s.h - nh) / 2); s.w = nw; s.h = nh;
+    syncSizeFields(s); save(); refreshMap(); return;
+  }
+  if ((s || room) && (act === 'txtl' || act === 'txtr' || act === 'txt0')) {
+    const o = s || room;
+    o.textRot = act === 'txt0' ? 0 : (textRot(o) + (act === 'txtr' ? 90 : 270)) % 360;
+    delete o.vertical; save(); renderPlan(); renderCard(); refreshMap(); return;
+  }
+  if (act === 'addchair' && s) { addChair(s); return; }
+  if (s && act === 'seatsides') { seatAround(s, 'sides'); return; }
+  if (s && act === 'seataround') { seatAround(s, 'around'); return; }
+  if (s && act.startsWith('rotd')) {
+    const d = {rotdl: -15, rotdr: 15, rotd90: 90, rotd0: -(s.rot || 0)}[act];
+    rotateDesk(s, d); save(); renderCard(); refreshMap(); return;
+  }
+  if (act === 'rmchair' && s) { const list = chairsOf(s); state.chairs = state.chairs.filter(x => x !== list[list.length - 1]); save(); renderCard(); refreshMap(); return; }
+  if (c && (act === 'rotl' || act === 'rotr')) { rotateChair(c, act === 'rotl' ? -45 : 45); return; }
+  if (c && act === 'face') { faceDesk(c); save(); refreshMap(); return; }
+  if (c && act === 'dupchair') { const d = {...c, id: newId(), x: c.x + 46}; state.chairs.push(d); save(); select({kind: 'chair', id: d.id}); return; }
+  if (c && act === 'delchair') { deleteChair(c); return; }
+  if (act === 'close') select(null);
+  else if (act === 'edit') setEdit(true);
+  else if (act === 'link') copyLink();
+  else if (act === 'clear' && s) { for (const f of PERSON_FIELDS) s[f] = ''; save(); renderAll(); }
+  else if (act === 'dup' && s) addDesk(s);
+  else if (act === 'del' && s) {
+    if (!armed(e.target.closest('[data-act]'), `Click again to delete${s.name ? ` (removes ${esc(shortName(s.name))})` : ''}`)) return;
+    state.seats = state.seats.filter(x => x !== s); state.chairs = state.chairs.filter(x => x.seat !== s.id);
+    ui.sel = null; save(); renderAll();
+  }
+});
+// Smallest box that still holds every room, desk and chair.
+function contentBox() {
+  const xs = [], ys = [];
+  for (const r of state.rooms) { xs.push(r.x, r.x + r.w); ys.push(r.y, r.y + r.h); }
+  for (const s of state.seats) { const b = deskBox(s); xs.push(b.x, b.x + b.w); ys.push(b.y, b.y + b.h); }
+  for (const c of state.chairs) { xs.push(c.x - 22, c.x + 22); ys.push(c.y - 22, c.y + 22); }
+  const x = Math.min(0, ...xs), y = Math.min(0, ...ys);
+  return {x, y, w: Math.max(...xs, 600) - x, h: Math.max(...ys, 400) - y};
+}
+function setFloor(w, h, keepFields) {
+  state.floor.w = clamp(Math.round(w), 600, 8000); state.floor.h = clamp(Math.round(h), 400, 6000);
+  applyFloor(); renderPlan(); refreshMap(); saveSoon();
+  if (!keepFields) { const a = card.querySelector('[data-f="fw"]'), b = card.querySelector('[data-f="fh"]'); if (a) a.value = state.floor.w; if (b) b.value = state.floor.h; }
+}
+function addRoom() {
+  const r = {id: 'r' + newId().slice(1), name: 'New room', kind: 'meeting', color: ROOM_COLORS[state.rooms.length % ROOM_COLORS.length], capacity: 0, notes: '',
+    w: 320, h: 220, x: Math.round(vb.x + vb.w / 2 - 160 + (window.innerWidth > 960 ? 175 * vb.w / size().w : 0)), y: Math.round(vb.y + vb.h / 2 - 110)};
+  state.rooms.push(r); save(); renderPlan(); select({kind: 'room', id: r.id});
+  setTimeout(() => { const n = card.querySelector('[data-f="name"]'); n?.focus(); n?.select(); }, 30);
+  toast('Room added — drag it into place and resize it with the handles');
+}
+// Browser pop-ups (confirm/alert) are blocked in some viewers, so dangerous buttons ask for a second click instead.
+function armed(btn, label) {
+  if (btn.dataset.armed) return true;
+  btn.dataset.armed = '1'; btn._text = btn.innerHTML; btn.classList.add('armed'); btn.innerHTML = label;
+  clearTimeout(btn._t); btn._t = setTimeout(() => { delete btn.dataset.armed; btn.classList.remove('armed'); btn.innerHTML = btn._text; }, 4000);
+  return false;
+}
+function syncSizeFields(s) {
+  const w = card.querySelector('[data-f="w"]'), h = card.querySelector('[data-f="h"]');
+  if (w) w.value = s.w; if (h) h.value = s.h;
+}
+// Picking a desk colour while colours are off switches the map to show them.
+function useColour() {
+  if (prefs.colorBy === 'off' || prefs.colorBy === 'status') {
+    prefs.colorBy = prefs.colorBy === 'off' ? 'custom' : 'team'; savePrefs(); applyClasses();
+    toast(`Colour set to “${prefs.colorBy === 'custom' ? 'Custom' : 'By team'}” so you can see it`);
+  }
+}
+// Chairs face "up" (toward -y) at rotation 0, so this turns one toward its desk.
+function faceDesk(c) {
+  const s = seatById(c.seat); if (!s) return;
+  const a = Math.atan2(s.x + s.w / 2 - c.x, -(s.y + s.h / 2 - c.y)) * 180 / Math.PI;
+  c.r = Math.round(a / 45) * 45;
+}
+function addChair(s) {
+  let c;
+  if (s) {
+    // Take the first spot around the desk (front, then back, then the ends) that is free.
+    const slots = chairSlots(s, 'around');
+    const free = slots.find(p => !onOtherDesk(s, p) && !chairNear(p)) || slots.find(p => !chairNear(p)) || slots[0];
+    c = {id: newId(), seat: s.id, ...free};
+  } else {
+    const shift = window.innerWidth > 960 && !$('#card').hidden ? 175 * vb.w / size().w : 0;
+    c = {id: newId(), seat: null, r: 0, x: Math.round(vb.x + vb.w / 2 + shift), y: Math.round(vb.y + vb.h / 2)};
+  }
+  state.chairs.push(c); save();
+  if (s) { renderCard(); refreshMap(); toast('Chair added — drag it wherever you like'); }
+  else select({kind: 'chair', id: c.id});
+}
+const CHAIR_GAP = 46, CHAIR_OUT = 18;
+// Positions along one desk side, centre first, then alternating outwards.
+function spread(len, n) {
+  const out = [];
+  for (let k = 0; out.length < n; k++) for (const sgn of k ? [1, -1] : [1]) if (out.length < n) out.push(sgn * k * CHAIR_GAP);
+  return out.filter(o => Math.abs(o) <= len / 2);
+}
+// Chair spots for a desk in map coordinates. "sides" = both long sides, "around" = long sides plus the ends.
+function chairSlots(s, mode) {
+  const wide = s.w >= s.h, L = wide ? s.w : s.h, S = wide ? s.h : s.w;
+  const nLong = Math.max(1, Math.floor((L + 6) / CHAIR_GAP)), nEnd = Math.max(1, Math.floor((S + 6) / CHAIR_GAP));
+  const local = [];
+  const side = (n, len, place) => spread(len, n).forEach(o => local.push(place(o)));
+  if (wide) {
+    side(nLong, s.w, o => [o, s.h / 2 + CHAIR_OUT, 0]);          // front (below)
+    side(nLong, s.w, o => [o, -s.h / 2 - CHAIR_OUT, 180]);       // back (above)
+    if (mode === 'around') {
+      side(nEnd, s.h, o => [s.w / 2 + CHAIR_OUT, o, 270]);
+      side(nEnd, s.h, o => [-s.w / 2 - CHAIR_OUT, o, 90]);
+    }
+  } else {
+    side(nLong, s.h, o => [s.w / 2 + CHAIR_OUT, o, 270]);       // front (right)
+    side(nLong, s.h, o => [-s.w / 2 - CHAIR_OUT, o, 90]);       // back (left)
+    if (mode === 'around') {
+      side(nEnd, s.w, o => [o, s.h / 2 + CHAIR_OUT, 0]);
+      side(nEnd, s.w, o => [o, -s.h / 2 - CHAIR_OUT, 180]);
+    }
+  }
+  return local.map(([lx, ly, r]) => { const p = toWorld(s, lx, ly); return {x: Math.round(p.x), y: Math.round(p.y), r: ((r + (s.rot || 0)) % 360 + 360) % 360}; });
+}
+const chairNear = p => state.chairs.some(o => Math.hypot(o.x - p.x, o.y - p.y) < 36);
+const onOtherDesk = (s, p) => state.seats.some(o => { if (o === s) return false; const b = deskBox(o); return p.x > b.x - 16 && p.x < b.x + b.w + 16 && p.y > b.y - 16 && p.y < b.y + b.h + 16; });
+// Replace a desk's chairs with a full set along both sides or all the way around.
+function seatAround(s, mode) {
+  state.chairs = state.chairs.filter(c => c.seat !== s.id);
+  const slots = chairSlots(s, mode);
+  for (const p of slots) state.chairs.push({id: newId(), seat: s.id, ...p});
+  save(); renderCard(); refreshMap();
+  toast(`${slots.length} chairs placed ${mode === 'around' ? 'all around' : 'on both sides of'} the desk`);
+}
+function rotateChair(c, d) { c.r = ((c.r || 0) + d + 360) % 360; save(); refreshMap(); }
+function deleteChair(c) { state.chairs = state.chairs.filter(x => x !== c); ui.sel = c.seat ? {kind: 'seat', id: c.seat} : null; save(); renderCard(); refreshMap(); }
+function copyLink() {
+  const url = location.href.split('#')[0] + (ui.sel ? `#${ui.sel.kind}=${encodeURIComponent(ui.sel.id)}` : '');
+  const done = () => toast('Link copied — it opens this file straight to that desk');
+  const fail = () => toast('Copy this link: ' + url);
+  navigator.clipboard ? navigator.clipboard.writeText(url).then(done, fail) : fail();
+}
+
+/* ---------------- selection ---------------- */
+function select(sel, fly) {
+  ui.sel = sel;
+  renderCard(); refreshMap(); renderList();
+  const s = selSeat() || selRoom();
+  if (s && fly) flyTo(s);
+  if (!s) { const c = selChair(); if (c && fly) flyTo({x: c.x - 22, y: c.y - 22, w: 44, h: 44}); }
+  // Scroll only the sidebar list (never the page, which would push the map away on phones).
+  const row = s && document.querySelector(`#list .row[data-id="${s.id}"]`), list = $('#list');
+  if (row && list.scrollHeight > list.clientHeight + 4) {
+    const d = row.getBoundingClientRect().top - list.getBoundingClientRect().top;
+    if (d < 0 || d > list.clientHeight - row.offsetHeight) list.scrollTop += d - list.clientHeight / 3;
+  }
+  if (!ui.edit && s) history.replaceState(null, '', `#${sel.kind}=${encodeURIComponent(sel.id)}`);
+  if (!s && location.hash.match(/^#(seat|room)=/)) history.replaceState(null, '', location.pathname + location.search);
+}
+function setEdit(on) {
+  ui.edit = on;
+  if (!on && (ui.sel?.kind === 'chair' || ui.sel?.kind === 'floor')) ui.sel = null; applyClasses(); renderCard(); refreshMap();
+  if (on && selSeat() && !selSeat().name) setTimeout(() => card.querySelector('[data-f="name"]')?.focus(), 30);
+}
+function addDesk(base, preset) {
+  const id = Math.max(0, ...state.seats.map(s => s.id)) + 1;
+  const c = {x: vb.x + vb.w / 2, y: vb.y + vb.h / 2};
+  const s = base ? structuredClone(base) : {role: 'New desk', dept: 'Shared', type: 'desk', area: '', w: 140, h: 62};
+  Object.assign(s, preset || {}, {id, name: '', email: '', phone: '', notes: ''});
+  if (base) {
+    s.x = base.x + 30; s.y = base.y + 30;
+    for (const ch of chairsOf(base)) state.chairs.push({...ch, id: newId(), seat: id, x: ch.x + 30, y: ch.y + 30});
+  } else {
+    s.x = Math.round(c.x - s.w / 2); s.y = Math.round(c.y - s.h / 2);
+    state.chairs.push({id: newId(), seat: id, x: Math.round(c.x), y: s.y + s.h + 18, r: 0});
+  }
+  state.seats.push(s);
+  save(); setEdit(true); renderAll(); select({kind: 'seat', id});
+}
+
+/* ---------------- pointer: pan, zoom, drag ---------------- */
+const pointers = new Map();
+let gesture = null;
+svg.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  cancelAnimationFrame(anim);
+  try { svg.setPointerCapture(e.pointerId); } catch (err) {}
+  pointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+  hideTip();
+  if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    gesture = {type: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), w0: vb.w, anchor: toSvg((a.x + b.x) / 2, (a.y + b.y) / 2)};
+    return;
+  }
+  const seatEl = e.target.closest('[data-seat]'), chairEl = e.target.closest('[data-chair]'), roomEl = e.target.closest('[data-room]');
+  const handleEl = e.target.closest('[data-h]');
+  const base = {sx: e.clientX, sy: e.clientY, moved: false, p0: toSvg(e.clientX, e.clientY)};
+  const chair = chairEl && chairById(chairEl.dataset.chair);
+  if (ui.edit && handleEl && (selRoom() || ui.sel?.kind === 'floor')) {
+    const obj = selRoom() || state.floor;
+    gesture = {...base, type: ui.sel.kind === 'floor' ? 'floor' : 'resize', h: handleEl.dataset.h, s: obj, keep: ui.sel, o: {x: obj.x, y: obj.y, w: obj.w, h: obj.h}};
+  } else if (ui.edit && handleEl && selSeat()) {
+    const s = selSeat(), c = deskCenter(s);
+    gesture = handleEl.dataset.h === 'rot'
+      ? {...base, type: 'rotate', s, c, rot0: s.rot || 0, a0: Math.atan2(base.p0.x - c.x, -(base.p0.y - c.y)) * 180 / Math.PI}
+      : {...base, type: 'resize', h: handleEl.dataset.h, s, o: {x: s.x, y: s.y, w: s.w, h: s.h}};
+  } else if (ui.edit && seatEl) {
+    const s = seatById(+seatEl.dataset.seat);
+    gesture = {...base, type: 'desk', s, o: {x: s.x, y: s.y}, chairs: chairsOf(s).map(c => ({c, x: c.x, y: c.y}))};
+  } else if (ui.edit && chair) {
+    gesture = {...base, type: 'chair', c: chair, o: {x: chair.x, y: chair.y}};
+  } else if (ui.edit && roomEl && selRoom()?.id === roomEl.dataset.room) {
+    // Dragging the selected room carries the desks and chairs inside it.
+    const r = selRoom(), inside = (x, y) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+    const desks = state.seats.filter(d => { const c = deskCenter(d); return inside(c.x, c.y); });
+    const ids = new Set(desks.map(d => d.id));
+    const chairs = state.chairs.filter(c => ids.has(c.seat) || (c.seat == null && inside(c.x, c.y)));
+    gesture = {...base, type: 'room', s: r, keep: ui.sel, o: {x: r.x, y: r.y},
+      items: [...desks, ...chairs].map(it => ({it, x: it.x, y: it.y}))};
+  } else {
+    gesture = {...base, type: 'pan', vx: vb.x, vy: vb.y,
+      target: seatEl ? {kind: 'seat', id: +seatEl.dataset.seat} : chair?.seat ? {kind: 'seat', id: chair.seat} : roomEl ? {kind: 'room', id: roomEl.dataset.room} : null};
+  }
+});
+svg.addEventListener('pointermove', e => {
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+  if (!gesture) { showTip(e); return; }
+  if (gesture.type === 'pinch') {
+    if (pointers.size < 2) return;
+    const [a, b] = [...pointers.values()], r = size();
+    vb.w = clamp(gesture.w0 * gesture.d0 / Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), MINW, maxW());
+    const k = vb.w / r.w;
+    vb.x = gesture.anchor.x - ((a.x + b.x) / 2 - r.l) * k;
+    vb.y = gesture.anchor.y - ((a.y + b.y) / 2 - r.t) * k;
+    setVB(); return;
+  }
+  if (!gesture.moved && Math.hypot(e.clientX - gesture.sx, e.clientY - gesture.sy) < 5) return;
+  gesture.moved = true;
+  if (gesture.type === 'pan') {
+    const k = vb.w / size().w;
+    vb.x = gesture.vx - (e.clientX - gesture.sx) * k; vb.y = gesture.vy - (e.clientY - gesture.sy) * k;
+    setVB(); svg.classList.add('panning');
+  } else {
+    const p = toSvg(e.clientX, e.clientY), g = gesture, s = g.s;
+    const dx = Math.round(p.x - g.p0.x), dy = Math.round(p.y - g.p0.y);
+    if (g.type === 'desk') {
+      s.x = g.o.x + dx; s.y = g.o.y + dy;
+      for (const m of g.chairs) { m.c.x = m.x + dx; m.c.y = m.y + dy; }
+    } else if (g.type === 'chair') { g.c.x = g.o.x + dx; g.c.y = g.o.y + dy; }
+    else if (g.type === 'room') {
+      s.x = g.o.x + dx; s.y = g.o.y + dy;
+      for (const m of g.items) { m.it.x = m.x + dx; m.it.y = m.y + dy; }
+      renderPlan();
+    } else if (g.type === 'floor') {
+      setFloor(g.h.includes('e') ? g.o.w + dx : g.o.w, g.h.includes('s') ? g.o.h + dy : g.o.h);
+    }
+    else if (g.type === 'resize') {
+      // Work in the desk's own (unrotated) frame so the opposite edge stays put.
+      const o = g.o, MIN = g.keep?.kind === 'room' ? 60 : 30, ld = rotPt(dx, dy, -(s.rot || 0));
+      let l = -o.w / 2, r = o.w / 2, t = -o.h / 2, b = o.h / 2;
+      if (g.h.includes('e')) r = Math.max(l + MIN, r + ld.x);
+      if (g.h.includes('w')) l = Math.min(r - MIN, l + ld.x);
+      if (g.h.includes('s')) b = Math.max(t + MIN, b + ld.y);
+      if (g.h.includes('n')) t = Math.min(b - MIN, t + ld.y);
+      const off = rotPt((l + r) / 2, (t + b) / 2, s.rot || 0);
+      s.w = Math.round(r - l); s.h = Math.round(b - t);
+      s.x = Math.round(o.x + o.w / 2 + off.x - s.w / 2); s.y = Math.round(o.y + o.h / 2 + off.y - s.h / 2);
+      syncSizeFields(s);
+      if (g.keep?.kind === 'room') renderPlan();
+    } else if (g.type === 'rotate') {
+      const a = Math.atan2(p.x - g.c.x, -(p.y - g.c.y)) * 180 / Math.PI;
+      let target = g.rot0 + a - g.a0;
+      target = e.shiftKey ? Math.round(target) : Math.round(target / 15) * 15;
+      rotateDesk(s, target - (s.rot || 0));
+      const f = card.querySelector('[data-f="rot"]'); if (f) f.value = s.rot || 0;
+    }
+    refreshMap();
+  }
+});
+function endPointer(e) {
+  pointers.delete(e.pointerId);
+  const g = gesture;
+  if (!g) return;
+  if (g.type === 'pinch') { if (!pointers.size) gesture = null; return; }
+  gesture = null;
+  svg.classList.remove('panning');
+  flushQueued();
+  if (e.type === 'pointercancel') return;
+  if (g.type === 'pan') { if (!g.moved) select(g.target); return; }
+  if (g.moved) save();
+  if (g.type === 'floor') { renderCard(); return; }
+  const want = g.keep || (g.type === 'chair' ? {kind: 'chair', id: g.c.id} : {kind: 'seat', id: g.s.id});
+  if (ui.sel?.kind !== want.kind || ui.sel?.id !== want.id) select(want);
+}
+svg.addEventListener('pointerup', endPointer);
+svg.addEventListener('pointercancel', endPointer);
+svg.addEventListener('pointerleave', hideTip);
+svg.addEventListener('wheel', e => {
+  e.preventDefault(); cancelAnimationFrame(anim);
+  const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+  zoomAt(e.clientX, e.clientY, Math.exp(dy * (e.ctrlKey ? 0.01 : 0.0016)));
+}, {passive: false});
+$('#zIn').onclick = () => { const r = size(); zoomAt(r.l + r.w / 2, r.t + r.h / 2, 1 / 1.4); };
+$('#zOut').onclick = () => { const r = size(); zoomAt(r.l + r.w / 2, r.t + r.h / 2, 1.4); };
+$('#zFit').onclick = () => animateTo(fitBox());
+new ResizeObserver(() => setVB()).observe(svg);
+
+const tip = $('#tip');
+function showTip(e) {
+  if (e.pointerType !== 'mouse') return;
+  const id = e.target.closest('[data-seat]')?.dataset.seat, room = e.target.closest('[data-room]')?.dataset.room;
+  const cid = e.target.closest('[data-chair]')?.dataset.chair, ch = cid && chairById(cid);
+  const s = id ? seatById(+id) : ch?.seat ? seatById(ch.seat) : null, r = !s && room && roomById(room);
+  if (!s && !r) { hideTip(); return; }
+  tip.innerHTML = s ? `<b>${esc(s.name || s.role)}</b><br><span>${esc(s.name ? s.role : statusLabel(s))} · ${esc(s.dept)}</span>`
+                    : `<b>${esc(r.name)}</b>${r.capacity ? `<br><span>Seats ${r.capacity}</span>` : ''}`;
+  tip.hidden = false;
+  const x = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8);
+  tip.style.left = x + 'px'; tip.style.top = (e.clientY + 16) + 'px';
+}
+function hideTip() { tip.hidden = true; }
+
+/* ---------------- roster table ---------------- */
+const roster = $('#roster');
+function renderRoster() {
+  const opts = s => Object.entries(TYPES).map(([k, v]) => `<option value="${k}"${s.type === k ? ' selected' : ''}>${v}</option>`).join('');
+  $('#rosterBody').innerHTML = workstations().sort((a, b) => a.id - b.id).map(s => `<tr data-id="${s.id}">
+    <td class="num">${s.id}</td>
+    <td><input data-f="role" value="${esc(s.role)}"></td>
+    <td><input data-f="name" value="${esc(s.name)}" placeholder="Add name"></td>
+    <td><span style="display:flex;align-items:center"><span class="dot" style="--c:${deptColor(s.dept)}"></span><input data-f="dept" value="${esc(s.dept)}" list="deptList"></span></td>
+    <td><input data-f="email" value="${esc(s.email)}" placeholder="name@ymu.org"></td>
+    <td><input data-f="phone" value="${esc(s.phone)}"></td>
+    <td><select data-f="type">${opts(s)}</select></td>
+    <td><button class="btn icon" data-locate title="Show on map">${ICON.pin}</button></td></tr>`).join('');
+  if (live.readOnly) $('#rosterBody').querySelectorAll('input,select').forEach(i => { i.disabled = true; });
+}
+$('#rosterBody').addEventListener('input', e => {
+  const f = e.target.dataset.f, s = seatById(+e.target.closest('tr')?.dataset.id); if (!f || !s) return;
+  s[f] = e.target.value;
+  if (f === 'dept') e.target.parentElement.querySelector('.dot').style.setProperty('--c', deptColor(s.dept));
+  saveSoon(); refreshMap(); refreshSide(); applyClasses();
+  if (selSeat() === s) renderCard();
+});
+$('#rosterBody').addEventListener('click', e => {
+  if (!e.target.closest('[data-locate]')) return;
+  roster.close(); select({kind: 'seat', id: +e.target.closest('tr').dataset.id}, true);
+});
+roster.addEventListener('click', e => { if (e.target.closest('[data-close]') || e.target === roster) roster.close(); });
+roster.addEventListener('close', () => { save(); renderAll(); });
+function openRoster() { renderRoster(); roster.showModal(); setTimeout(() => roster.querySelector('[data-f="name"]')?.focus(), 30); }
+
+/* ---------------- import / export ---------------- */
+function download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type}));
+  a.download = name; document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+const stamp = () => new Date().toISOString().slice(0, 10);
+const CSV_COLS = ['id', 'role', 'name', 'dept', 'email', 'phone', 'type', 'area', 'notes', 'color'];
+function toCSV() {
+  const q = v => /[",\n]/.test(String(v ?? '')) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? '');
+  return [CSV_COLS.join(','), ...[...state.seats].sort((a, b) => a.id - b.id).map(s => CSV_COLS.map(c => q(s[c])).join(','))].join('\n');
+}
+function parseCSV(text) {
+  const rows = []; let row = [], cur = '', q = false;
+  text = text.replace(/^﻿/, '');
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(cur); cur = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; }
+    else cur += c;
+  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  return rows.filter(r => r.some(v => v.trim()));
+}
+function importCSV(text) {
+  const rows = parseCSV(text); if (rows.length < 2) throw Error('The file has no rows');
+  const head = rows[0].map(h => h.trim().toLowerCase());
+  const idx = c => head.indexOf(c);
+  if (idx('id') < 0) throw Error('Missing an "id" column (desk number)');
+  let n = 0;
+  for (const r of rows.slice(1)) {
+    const s = seatById(+r[idx('id')]); if (!s) continue;
+    for (const c of CSV_COLS.slice(1)) if (idx(c) >= 0 && r[idx(c)] !== undefined) {
+      const v = r[idx(c)].trim();
+      s[c] = c === 'type' ? (TYPES[v] ? v : s.type) : v;
+    }
+    n++;
+  }
+  return n;
+}
+function shareableHTML() {
+  const json = JSON.stringify(state).replace(/</g, '\\u003c');
+  return PRISTINE.replace(/(<script id="seed" type="application\/json">)[\s\S]*?(<\/script>)/, (m, a, b) => a + json + b);
+}
+const fileIn = $('#fileIn');
+let fileMode = null;
+function pickFile(mode, accept) { fileMode = mode; fileIn.accept = accept; fileIn.value = ''; fileIn.click(); }
+fileIn.onchange = async () => {
+  const f = fileIn.files[0]; if (!f) return;
+  try {
+    const text = await f.text();
+    if (fileMode === 'csv') { const n = importCSV(text); save(); renderAll(); toast(`Updated ${n} desks from ${f.name}`); }
+    else {
+      const data = JSON.parse(text);
+      if (!Array.isArray(data.seats) || !data.seats.every(s => s.id && s.role != null)) throw Error('This is not an office map backup');
+      state = normalize({savedAt: 0, ...data}); ui.sel = null; save(); renderAll(); animateTo(fitBox());
+      toast('Layout restored');
+    }
+  } catch (err) { toast('Could not import: ' + err.message); }
+};
+const menu = $('#menu');
+$('#btnMenu').onclick = e => { e.stopPropagation(); menu.hidden = !menu.hidden; };
+document.addEventListener('click', e => { if (!menu.hidden && !e.target.closest('.menuwrap')) menu.hidden = true; });
+menu.addEventListener('click', e => {
+  const m = e.target.closest('[data-menu]')?.dataset.menu; if (!m) return;
+  if (m === 'reset' && !armed(e.target.closest('[data-menu]'), '<span>Click again to reset everything</span>')) return;
+  menu.hidden = true;
+  if (m === 'html') { save(); download(`YMU-Office-Map-${stamp()}.html`, shareableHTML(), 'text/html'); toast('Saved a shareable copy. Send that file to the team.'); }
+  if (m === 'print') window.print();
+  if (m === 'csv-out') download(`YMU-seating-roster-${stamp()}.csv`, toCSV(), 'text/csv');
+  if (m === 'csv-in') pickFile('csv', '.csv,text/csv');
+  if (m === 'json-out') download(`YMU-office-layout-${stamp()}.json`, JSON.stringify(state, null, 2), 'application/json');
+  if (m === 'json-in') pickFile('json', '.json,application/json');
+  if (m === 'reset') {
+    state = fresh(); ui.sel = null; save(); renderAll(); animateTo(fitBox()); toast('Layout reset');
+  }
+});
+let printBox = null;
+addEventListener('beforeprint', () => { printBox = {...vb}; vb = {x: 0, y: 0, w: W, h: H}; svg.setAttribute('viewBox', `0 0 ${W} ${H}`); });
+addEventListener('afterprint', () => { if (printBox) { vb = printBox; setVB(); } });
+
+/* ---------------- controls ---------------- */
+$('#optColorBy').onchange = e => { prefs.colorBy = e.target.value; savePrefs(); applyClasses(); refreshMap(); };
+$('#optNames').onchange = e => { prefs.names = e.target.checked; savePrefs(); refreshMap(); };
+$('#btnEdit').onclick = () => setEdit(!ui.edit);
+$('#btnDone').onclick = () => setEdit(false);
+$('#btnAdd').onclick = () => addDesk();
+$('#btnAddTable').onclick = () => {
+  addDesk(null, {role: 'Meeting table', type: 'table', w: 220, h: 90});
+  const t = selSeat(); if (t) seatAround(t, 'around');
+};
+$('#btnAddRoom').onclick = () => addRoom();
+$('#btnFloor').onclick = () => { select({kind: 'floor'}); animateTo(fitBox()); };
+$('#btnAddChair').onclick = () => addChair(selSeat());
+$('#btnRoster').onclick = openRoster;
+$('#bannerRoster').onclick = openRoster;
+$('#bannerClose').onclick = () => { prefs.banner = false; savePrefs(); applyClasses(); };
+document.querySelectorAll('#listSeg button').forEach(b => b.onclick = () => {
+  ui.list = b.dataset.list;
+  document.querySelectorAll('#listSeg button').forEach(x => x.classList.toggle('on', x === b));
+  renderList();
+});
+const q = $('#q');
+q.addEventListener('input', () => { ui.query = q.value; renderList(); refreshMap(); });
+q.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { const first = $('#list .row'); if (first) select({kind: 'seat', id: +first.dataset.id}, true); }
+  if (e.key === 'Escape') { q.value = ''; ui.query = ''; renderList(); refreshMap(); q.blur(); }
+});
+document.addEventListener('keydown', e => {
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
+  if (e.key === '/' && !typing && !roster.open) { e.preventDefault(); q.focus(); q.select(); }
+  else if (e.key === 'Escape' && !typing && !roster.open) { if (!menu.hidden) menu.hidden = true; else select(null); }
+  else if (ui.edit && !typing && (selSeat() || selChair()) && e.key.startsWith('Arrow')) {
+    e.preventDefault();
+    const d = e.shiftKey ? 10 : 1;
+    const dx = e.key === 'ArrowLeft' ? -d : e.key === 'ArrowRight' ? d : 0, dy = e.key === 'ArrowUp' ? -d : e.key === 'ArrowDown' ? d : 0;
+    const s = selSeat();
+    for (const o of s ? [s, ...chairsOf(s)] : [selChair()]) { o.x += dx; o.y += dy; }
+    saveSoon(); refreshMap();
+  }
+  else if (ui.edit && !typing && selChair() && (e.key === 'r' || e.key === 'R')) rotateChair(selChair(), e.shiftKey ? -45 : 45);
+  else if (ui.edit && !typing && selSeat() && (e.key === 'r' || e.key === 'R')) { rotateDesk(selSeat(), e.shiftKey ? -15 : 15); saveSoon(); renderCard(); refreshMap(); }
+  else if (ui.edit && !typing && selChair() && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); deleteChair(selChair()); }
+});
+
+/* ---------------- toast, deep links, boot ---------------- */
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('on'), 2800);
+}
+function fromHash() {
+  const m = location.hash.match(/^#(seat|room|find)=(.+)$/); if (!m) return;
+  const v = decodeURIComponent(m[2]);
+  if (m[1] === 'seat' && seatById(+v)) select({kind: 'seat', id: +v}, true);
+  else if (m[1] === 'room' && roomById(v)) select({kind: 'room', id: v}, true);
+  else if (m[1] === 'find') {
+    q.value = ui.query = v; renderList(); refreshMap();
+    const hit = state.seats.find(matches); if (hit) select({kind: 'seat', id: hit.id}, true);
+  }
+}
+addEventListener('hashchange', fromHash);
+function renderAll() { applyFloor(); applyClasses(); renderPlan(); refreshMap(); refreshSide(); renderCard(); }
+
+renderAll();
+vb = {...fitBox(), h: 0}; setVB();
+if (SHARED) connectLive(); else fromHash();
+})();
+</script>
+</body>
+</html>
